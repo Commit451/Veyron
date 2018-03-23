@@ -14,7 +14,7 @@ import kotlinx.android.synthetic.main.activity_main.*
 class MainActivity : DriveAppViewerBaseActivity() {
 
     companion object {
-        const val url = "${Veyron.SCHEME_APP}/stuff"
+        const val url = "${Veyron.SCHEME_APP}://stuff"
         const val file = "thing"
     }
 
@@ -62,7 +62,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
         super.onSignedIn()
         veyron = Veyron.Builder(driveResourceClient)
                 .build()
-        veyron.document(url, Thing::class.java)
+        veyron.document("$url/$file", Thing::class.java)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe({
