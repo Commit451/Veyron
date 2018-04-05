@@ -37,3 +37,5 @@ dependencies {
     api 'com.github.Commit451:Tisk:1.0.2'
     api 'com.github.Commit451:okyo:3.0.2'
 }
+
+apply from: 'https://raw.githubusercontent.com/Commit451/gradle-android-javadocs/1.0.0/gradle-android-javadocs.gradle'
