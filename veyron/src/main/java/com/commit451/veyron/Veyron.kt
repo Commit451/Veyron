@@ -1,6 +1,7 @@
 package com.commit451.veyron
 
 import android.net.Uri
+import android.util.Log
 import com.commit451.okyo.Okyo
 import com.commit451.tisk.toCompletable
 import com.commit451.tisk.toSingle
@@ -11,7 +12,6 @@ import com.google.android.gms.drive.query.SearchableField
 import com.squareup.moshi.Moshi
 import io.reactivex.Completable
 import io.reactivex.Single
-import java.io.FileNotFoundException
 
 
 /**
@@ -26,6 +26,7 @@ class Veyron private constructor(builder: Builder) {
 
     private var driveClient: DriveResourceClient = builder.driveClient
     private var moshi: Moshi = builder.moshi ?: Moshi.Builder().build()
+    private val verbose = builder.verbose
 
     /**
      * Get the folder at the URI. Creates intermediate folders and the actual folder if they do not exist
@@ -46,22 +47,23 @@ class Veyron private constructor(builder: Builder) {
                         .blockingGet()
                 if (buffer != null && buffer.count > 0) {
                     runnerFolder = buffer.get(0).driveId.asDriveFolder()
-                    buffer.release()
                 } else {
                     val changeSet = folderMetadataChangeSet(path)
                     runnerFolder = driveClient.createFolder(runnerFolder, changeSet)
                             .toSingle()
                             .blockingGet()
                 }
+                buffer.release()
             }
             Single.just(runnerFolder)
         }
     }
 
     /**
-     * Get the driveId at the given URI. Throws [FileNotFoundException] if the file does not yet exist
+     * Get the driveId at the given URI.
      */
     fun driveId(uri: String): Single<VeyronResult<DriveId>> {
+        log { "Fetching driveId for path $uri" }
         return Single.defer {
             val url = Uri.parse(uri)
             val segments = segments(uri)
@@ -75,16 +77,22 @@ class Veyron private constructor(builder: Builder) {
                 val buffer = driveClient.queryChildren(runnerFolder, folderQuery)
                         .toSingle()
                         .blockingGet()
+                var found = false
                 if (buffer.count > 0) {
+                    found = true
+                    log({ "Found result for path $path" })
                     val thing = buffer.get(0)
                     if (thing.isFolder) {
                         runnerFolder = thing.driveId.asDriveFolder()
                     }
                     driveId = thing.driveId
                 } else {
-                    return@defer Single.just(VeyronResult(driveId))
+                    log({ "Found no result for path $path" })
                 }
                 buffer.release()
+                if (!found) {
+                    return@defer Single.just(VeyronResult(null))
+                }
             }
             Single.just(VeyronResult(driveId))
         }
@@ -106,57 +114,37 @@ class Veyron private constructor(builder: Builder) {
     fun <T> document(uri: String, type: Class<T>): Single<VeyronResult<T>> {
         return file(uri)
                 .flatMap {
+                    log({ "Attempting to turn ${it.result?.driveId} into a document" })
                     val document = fileToDocument(it.result, type)
                     Single.just(VeyronResult(document))
                 }
-    }
-
-    /**
-     * Get the collection of docs at the given path
-     */
-    fun <T> collection(uri: String, type: Class<T>): Single<List<T>> {
-        return Single.defer {
-            val folder = folder(uri)
-                    .blockingGet()
-            val buffer = driveClient.listChildren(folder)
-                    .toSingle()
-                    .blockingGet()
-            val collection = mutableListOf<T>()
-            buffer.forEach {
-                if (!it.isFolder) {
-                    val file = it.driveId.asDriveFile()
-                    val document = fileToDocument(file, type)
-                    if (document != null) {
-                        collection.add(document)
-                    }
-                }
-            }
-            buffer.release()
-            Single.just(collection)
-        }
-    }
-
-    fun <T> save(uri: String, collection: Collection<SaveRequest<T>>): Completable {
-        return Completable.defer {
-            val folder = folder(uri)
-                    .blockingGet()
-            collection.forEach {
-                save(folder, it)
-            }
-            Completable.complete()
-        }
     }
 
     fun <T> save(uri: String, thing: SaveRequest<T>): Completable {
         return Completable.defer {
             val folder = folder(uri)
                     .blockingGet()
-            save(folder, thing)
+            //Check if file already exists
+            val query = Query.Builder()
+                    .addFilter(Filters.eq(SearchableField.TITLE, thing.metadataChangeSet.title))
+                    .build()
+            val buffer = driveClient.queryChildren(folder, query)
+                    .toSingle()
+                    .blockingGet()
+            if (buffer.isEmpty()) {
+                log { "File did not already exist, creating new file" }
+                saveToNewFile(folder, thing)
+            } else {
+                log { "File existed already, overwriting" }
+                saveToExistingFile(buffer.get(0).driveId.asDriveFile(), thing)
+            }
+            buffer.release()
+
             Completable.complete()
         }
     }
 
-    private fun <T> save(folder: DriveFolder, request: SaveRequest<T>) {
+    private fun <T> saveToNewFile(folder: DriveFolder, request: SaveRequest<T>) {
         val json = moshi.adapter<T>(request.type)
                 .toJson(request.item)
         val driveContents = driveClient.createContents()
@@ -166,12 +154,25 @@ class Veyron private constructor(builder: Builder) {
         driveClient.createFile(folder, request.metadataChangeSet, driveContents)
     }
 
+    private fun <T> saveToExistingFile(file: DriveFile, request: SaveRequest<T>) {
+        val json = moshi.adapter<T>(request.type)
+                .toJson(request.item)
+        val driveContents = driveClient.openFile(file, DriveFile.MODE_WRITE_ONLY)
+                .toSingle()
+                .blockingGet()
+        Okyo.writeByteArrayToOutputStream(json.toByteArray(), driveContents.outputStream)
+        driveClient.commitContents(driveContents, request.metadataChangeSet)
+    }
+
+    /**
+     * Deletes the file or folder at the given uri. If not found, throws a [DriveIdNotFoundException]
+     */
     fun delete(uri: String): Completable {
         return Completable.defer {
             val driveId = driveId(uri)
                     .blockingGet()
             if (driveId.result == null) {
-                throw NotFoundException()
+                throw DriveIdNotFoundException()
             }
             driveClient.delete(driveId.result.asDriveResource())
                     .toCompletable()
@@ -200,6 +201,7 @@ class Veyron private constructor(builder: Builder) {
 
     private fun <T> fileToDocument(file: DriveFile?, type: Class<T>): T? {
         if (file == null) {
+            log { "File is null, so no document" }
             return null
         }
         val contents = driveClient.openFile(file, DriveFile.MODE_READ_ONLY)
@@ -215,18 +217,34 @@ class Veyron private constructor(builder: Builder) {
         return uri.substringAfter("://").split("/")
     }
 
+    private fun log(messageBlock: () -> String) {
+        if (verbose) {
+            val message = messageBlock.invoke()
+            Log.d("Veyron", message)
+        }
+    }
+
     /**
      * Use the builder class to create an instance of [Veyron]
      */
     class Builder(internal val driveClient: DriveResourceClient) {
 
         internal var moshi: Moshi? = null
+        internal var verbose = false
 
         /**
          * Use a custom Mosh instance to serialize and deserialize
          */
         fun moshi(moshi: Moshi): Builder {
             this.moshi = moshi
+            return this
+        }
+
+        /**
+         * If you would like a bunch of logs
+         */
+        fun verbose(verbose: Boolean): Builder {
+            this.verbose = verbose
             return this
         }
 

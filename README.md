@@ -14,15 +14,15 @@ val veyron = Veyron.Builder(driveResourceClient)
     .build()
 ```
 
-### Create a Document
+### Create
 ```kotlin
-val thing = Thing()
+val dog = Dog()
 val metadataChangeSet = MetadataChangeSet.Builder()
-        .setTitle("thing")
+        .setTitle("dog.json")
         .build()
-val saveRequest = SaveRequest(Thing::class.java, thing, metadataChangeSet)
+val saveRequest = SaveRequest(Dog::class.java, thing, metadataChangeSet)
 
-val url = "${Veyron.SCHEME_APP}://stuff"
+val url = "${Veyron.SCHEME_APP}://info"
 //RxJava 2 Single is returned
 veyron.save(url, saveRequest)
         .subscribeOn(Schedulers.io())
@@ -34,25 +34,37 @@ veyron.save(url, saveRequest)
         })
 ```
 
-### Fetch a Document
+### Fetch
 ```kotlin
-val url = "${Veyron.SCHEME_APP}://stuff"
-veyron.document("$url/thing", Thing::class.java)
+val url = "${Veyron.SCHEME_APP}://info/dog.json"
+veyron.document(url, Dog::class.java)
     .subscribeOn(Schedulers.io())
     .observeOn(AndroidSchedulers.mainThread())
     .subscribe({
-        textThing.text = it.result?.stuff
+        snackbar("Dog found")
+    }, {
+        it.printStackTrace()
+    })
+```
+
+### Delete
+```kotlin
+val url = "${Veyron.SCHEME_APP}://info/dog.json"
+veyron.delete(url)
+    .subscribeOn(Schedulers.io())
+    .observeOn(AndroidSchedulers.mainThread())
+    .subscribe({
+        snackbar("Dog deleted")
     }, {
         it.printStackTrace()
     })
 ```
 
 ### Other Operations
-Other operations you can do include
+Other operations you can perform:
 - veyron.file(url)
 - veyron.folder(url)
 - veyron.driveId(url)
-- veyron.delete(url)
 
 License
 --------

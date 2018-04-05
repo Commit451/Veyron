@@ -1,3 +1,3 @@
 package com.commit451.veyron
 
-class VeyronResult<T>(val result: T?)
+class VeyronResult<out T>(val result: T?)
