@@ -23,11 +23,13 @@ android {
 }
 
 ext {
-    googleServicesVersion = '11.8.0'
+    googleServicesVersion = '12.0.1'
 }
 dependencies {
     api "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
+    api "com.google.android.gms:play-services-base:$googleServicesVersion"
+    api "com.google.android.gms:play-services-auth:$googleServicesVersion"
     api "com.google.android.gms:play-services-drive:$googleServicesVersion"
 
     api 'com.squareup.moshi:moshi:1.5.0'

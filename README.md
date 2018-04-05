@@ -2,12 +2,57 @@
 
 [![Build Status](https://travis-ci.org/Commit451/Veyron.svg?branch=master)](https://travis-ci.org/Commit451/Veyron) [![](https://jitpack.io/v/Commit451/Veyron.svg)](https://jitpack.io/#Commit451/Veyron)
 
-Easy Drive access
+Easily store and fetch JSON in Google Drive.
 
 ## Usage
+First, follow the [Android Google Drive SDK quick start sample](https://github.com/gsuitedevs/android-samples/tree/master/drive/quickstart) to get the project set up. Then, you will be able to use Veyron:
 ```kotlin
-//TODO
+//when you have a valid DriveResourceClient
+val veyron = Veyron.Builder(driveResourceClient)
+    //optional configuration for Moshi
+    //.moshi(moshi)
+    .build()
 ```
+
+### Create a Document
+```kotlin
+val thing = Thing()
+val metadataChangeSet = MetadataChangeSet.Builder()
+        .setTitle("thing")
+        .build()
+val saveRequest = SaveRequest(Thing::class.java, thing, metadataChangeSet)
+
+val url = "${Veyron.SCHEME_APP}://stuff"
+//RxJava 2 Single is returned
+veyron.save(url, saveRequest)
+        .subscribeOn(Schedulers.io())
+        .observeOn(AndroidSchedulers.mainThread())
+        .subscribe({
+            snackbar("Saved")
+        }, {
+            it.printStackTrace()
+        })
+```
+
+### Fetch a Document
+```kotlin
+val url = "${Veyron.SCHEME_APP}://stuff"
+veyron.document("$url/thing", Thing::class.java)
+    .subscribeOn(Schedulers.io())
+    .observeOn(AndroidSchedulers.mainThread())
+    .subscribe({
+        textThing.text = it.result?.stuff
+    }, {
+        it.printStackTrace()
+    })
+```
+
+### Other Operations
+Other operations you can do include
+- veyron.file(url)
+- veyron.folder(url)
+- veyron.driveId(url)
+- veyron.delete(url)
 
 License
 --------
