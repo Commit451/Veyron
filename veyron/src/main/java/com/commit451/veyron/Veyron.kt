@@ -15,12 +15,19 @@ import io.reactivex.Single
 
 
 /**
- * Save and fetch things from Google Drive easily
+ * Save and fetch JSON from Google Drive easily
  */
 class Veyron private constructor(builder: Builder) {
 
     companion object {
+        /**
+         * The root of the user's Google Drive, which they can see
+         */
         const val SCHEME_ROOT = "root"
+
+        /**
+         * The root of the app folder, which only the current app can see and modify
+         */
         const val SCHEME_APP = "app"
     }
 
@@ -120,23 +127,31 @@ class Veyron private constructor(builder: Builder) {
                 }
     }
 
-    fun <T> save(uri: String, thing: SaveRequest<T>): Completable {
+    /**
+     * Save the data within the [SaveRequest] at the given uri. Note that a new file will be created
+     * base on the [SaveRequest.metadataChangeSet] and the file name should not be included in the uri.
+     * Note that file names are considered unique and any file with the same title will be overwritten.
+     */
+    fun <T> save(uri: String, request: SaveRequest<T>): Completable {
+        if (request.metadataChangeSet.title == null) {
+            throw IllegalStateException("A title is required for the MetadataChangeSet of this SaveRequest")
+        }
         return Completable.defer {
             val folder = folder(uri)
                     .blockingGet()
             //Check if file already exists
             val query = Query.Builder()
-                    .addFilter(Filters.eq(SearchableField.TITLE, thing.metadataChangeSet.title))
+                    .addFilter(Filters.eq(SearchableField.TITLE, request.metadataChangeSet.title))
                     .build()
             val buffer = driveClient.queryChildren(folder, query)
                     .toSingle()
                     .blockingGet()
             if (buffer.isEmpty()) {
                 log { "File did not already exist, creating new file" }
-                saveToNewFile(folder, thing)
+                saveToNewFile(folder, request)
             } else {
                 log { "File existed already, overwriting" }
-                saveToExistingFile(buffer.get(0).driveId.asDriveFile(), thing)
+                saveToExistingFile(buffer.get(0).driveId.asDriveFile(), request)
             }
             buffer.release()
 
@@ -233,7 +248,8 @@ class Veyron private constructor(builder: Builder) {
         internal var verbose = false
 
         /**
-         * Use a custom Mosh instance to serialize and deserialize
+         * Use a custom Mosh instance to serialize and deserialize. Needed if you are going to save
+         * special objects such as Dates
          */
         fun moshi(moshi: Moshi): Builder {
             this.moshi = moshi

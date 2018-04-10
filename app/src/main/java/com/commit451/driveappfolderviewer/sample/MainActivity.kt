@@ -108,7 +108,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
                         .show()
             }
             holder
-        }, { viewHolder, position, item ->
+        }, { viewHolder, _, item ->
             viewHolder.bind(item)
         })
 

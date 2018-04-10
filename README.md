@@ -66,6 +66,12 @@ Other operations you can perform:
 - veyron.folder(url)
 - veyron.driveId(url)
 
+## Build Locally
+You will need to set up a Google Cloud project with the same package name as the sample, and create a keystore that works with the details within the app's `build.gradle` file. Then, create a new `gradle.properties` file that looks like so:
+```
+KEYSTORE_PASSWORD=keystorepasswordhere
+```
+
 License
 --------
 
