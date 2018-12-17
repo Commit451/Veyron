@@ -1,8 +1,8 @@
 package com.commit451.driveappfolderviewer.sample
 
 import android.os.Bundle
-import android.support.design.widget.Snackbar
-import android.support.v7.widget.RecyclerView
+import com.google.android.material.snackbar.Snackbar
+import androidx.recyclerview.widget.RecyclerView
 import android.text.format.DateFormat
 import android.util.Log
 import android.view.LayoutInflater

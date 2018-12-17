@@ -13,7 +13,6 @@ import com.squareup.moshi.Moshi
 import io.reactivex.Completable
 import io.reactivex.Single
 
-
 /**
  * Save and fetch JSON from Google Drive easily
  */
@@ -87,14 +86,14 @@ class Veyron private constructor(builder: Builder) {
                 var found = false
                 if (buffer.count > 0) {
                     found = true
-                    log({ "Found result for path $path" })
+                    log { "Found result for path $path" }
                     val thing = buffer.get(0)
                     if (thing.isFolder) {
                         runnerFolder = thing.driveId.asDriveFolder()
                     }
                     driveId = thing.driveId
                 } else {
-                    log({ "Found no result for path $path" })
+                    log { "Found no result for path $path" }
                 }
                 buffer.release()
                 if (!found) {
@@ -121,7 +120,7 @@ class Veyron private constructor(builder: Builder) {
     fun <T> document(uri: String, type: Class<T>): Single<VeyronResult<T>> {
         return file(uri)
                 .flatMap {
-                    log({ "Attempting to turn ${it.result?.driveId} into a document" })
+                    log { "Attempting to turn ${it.result?.driveId} into a document" }
                     val document = fileToDocument(it.result, type)
                     Single.just(VeyronResult(document))
                 }
@@ -141,7 +140,7 @@ class Veyron private constructor(builder: Builder) {
                     .blockingGet()
             //Check if file already exists
             val query = Query.Builder()
-                    .addFilter(Filters.eq(SearchableField.TITLE, request.metadataChangeSet.title))
+                    .addFilter(Filters.eq(SearchableField.TITLE, request.metadataChangeSet.title!!))
                     .build()
             val buffer = driveClient.queryChildren(folder, query)
                     .toSingle()
