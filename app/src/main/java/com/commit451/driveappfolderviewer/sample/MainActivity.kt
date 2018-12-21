@@ -1,43 +1,39 @@
 package com.commit451.driveappfolderviewer.sample
 
 import android.os.Bundle
-import com.google.android.material.snackbar.Snackbar
-import androidx.recyclerview.widget.RecyclerView
 import android.text.format.DateFormat
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageView
 import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
 import com.commit451.adapterlayout.AdapterLayout
 import com.commit451.aloy.AloyAdapter
-import com.commit451.driveappfolderviewer.DriveAppFolderViewerActivity
 import com.commit451.driveappfolderviewer.DriveAppViewerBaseActivity
-import com.commit451.driveappfolderviewer.sample.R.id.*
 import com.commit451.veyron.SaveRequest
 import com.commit451.veyron.Veyron
-import com.google.android.gms.drive.MetadataChangeSet
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.android.material.snackbar.Snackbar
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.schedulers.Schedulers
 import kotlinx.android.synthetic.main.activity_main.*
 import java.util.*
-import com.squareup.moshi.Rfc3339DateJsonAdapter
-import com.squareup.moshi.Moshi
 
 class MainActivity : DriveAppViewerBaseActivity() {
 
     companion object {
-        const val URL_DOGS = "${Veyron.SCHEME_APP}://dogs"
-        const val FILE_DOGS = "dogs.json"
+        private const val URL_DOGS = "${Veyron.SCHEME_APP}://dogs"
+        private const val FILE_DOGS = "dogs.json"
     }
 
-    lateinit var veyron: Veyron
+    private lateinit var veyron: Veyron
 
-    var currentDogsResponse: DogsResponse? = null
+    private var currentDogsResponse: DogsResponse? = null
 
-    //top of file
-    lateinit var adapter: AloyAdapter<Dog, DogViewHolder>
+    private lateinit var adapter: AloyAdapter<Dog, DogViewHolder>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,8 +44,6 @@ class MainActivity : DriveAppViewerBaseActivity() {
         toolbar.setOnMenuItemClickListener {
             when (it.itemId) {
                 R.id.action_debug -> {
-                    val intent = DriveAppFolderViewerActivity.newIntent(this)
-                    startActivity(intent)
                     return@setOnMenuItemClickListener true
                 }
             }
@@ -62,16 +56,13 @@ class MainActivity : DriveAppViewerBaseActivity() {
             dog.name = UUID.randomUUID().toString()
             dog.created = Date()
 
-            val metadataChangeSet = MetadataChangeSet.Builder()
-                    .setTitle(FILE_DOGS)
-                    .build()
             val response = currentDogsResponse ?: DogsResponse()
             this.currentDogsResponse = response
             val dogs = response.dogs ?: mutableListOf()
             //in the case where we created a new list
             response.dogs = dogs
             dogs.add(dog)
-            val saveRequest = SaveRequest(DogsResponse::class.java, response, metadataChangeSet)
+            val saveRequest = SaveRequest(DogsResponse::class.java, response, FILE_DOGS)
 
             veyron.save(URL_DOGS, saveRequest)
                     .subscribeOn(Schedulers.io())
@@ -79,8 +70,8 @@ class MainActivity : DriveAppViewerBaseActivity() {
                     .subscribe({
                         snackbar("Saved")
                         load()
-                    }, {
-                        error(it)
+                    }, { throwable ->
+                        error(throwable)
                     })
 
         }
@@ -115,20 +106,20 @@ class MainActivity : DriveAppViewerBaseActivity() {
         listDogs.adapter = adapter
     }
 
-    override fun onSignedIn() {
-        super.onSignedIn()
+    override fun onSignedIn(googleSignInAccount: GoogleSignInAccount) {
+        super.onSignedIn(googleSignInAccount)
         val moshi = Moshi.Builder()
                 .add(Date::class.java, Rfc3339DateJsonAdapter())
                 //etc
                 .build()
-        veyron = Veyron.Builder(driveResourceClient)
+        veyron = Veyron.Builder(drive!!)
                 .moshi(moshi)
                 .verbose(true)
                 .build()
         load()
     }
 
-    fun load() {
+    private fun load() {
         veyron.document("$URL_DOGS/$FILE_DOGS", DogsResponse::class.java)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
@@ -147,7 +138,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
                 })
     }
 
-    fun snackbar(message: String) {
+    private fun snackbar(message: String) {
         Snackbar.make(root, message, Snackbar.LENGTH_SHORT)
                 .show()
     }

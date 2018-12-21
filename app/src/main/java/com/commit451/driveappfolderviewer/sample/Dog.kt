@@ -4,7 +4,6 @@ import com.squareup.moshi.Json
 import java.util.*
 
 class Dog {
-
     @field:Json(name = "name")
     var name: String = ""
     @field:Json(name = "created")
