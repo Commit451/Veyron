@@ -10,6 +10,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.commit451.adapterlayout.AdapterLayout
 import com.commit451.aloy.AloyAdapter
+import com.commit451.driveappfolderviewer.DriveAppFolderViewer
 import com.commit451.driveappfolderviewer.DriveAppViewerBaseActivity
 import com.commit451.veyron.SaveRequest
 import com.commit451.veyron.Veyron
@@ -44,6 +45,8 @@ class MainActivity : DriveAppViewerBaseActivity() {
         toolbar.setOnMenuItemClickListener {
             when (it.itemId) {
                 R.id.action_debug -> {
+                    val intent = DriveAppFolderViewer.intent(this)
+                    startActivity(intent)
                     return@setOnMenuItemClickListener true
                 }
             }

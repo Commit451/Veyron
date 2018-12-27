@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package com.commit451.veyron
 
 import android.net.Uri
@@ -58,10 +60,9 @@ class Veyron private constructor(builder: Builder) {
                 val result = drive.files()
                         .list()
                         .setSpaces(spaces)
-                        .setQ("'${runnerFolder.id}' in parents")
+                        .setQ("'${runnerFolder.id}' in parents and name = $path")
                         .setFields(filesFields)
                         .setPageSize(1000)
-                        .setQ(path)
                         .execute()
                 if (result != null && result.files.count() > 0) {
                     runnerFolder = result.files.first()
@@ -75,7 +76,30 @@ class Veyron private constructor(builder: Builder) {
                     }
                 }
             }
+            log { "Returning result for file at $uri" }
             Single.just(runnerFolder)
+        }
+    }
+
+    /**
+     * Search for files at the given URI. Creates intermediate folders and the actual file if they do not exist. Example:
+     * app://dogs with a query of "spike" will query that result.
+     * See [Search for files](https://developers.google.com/drive/api/v3/search-parameters) for
+     * documentation on how to create the query
+     */
+    fun search(uri: String, query: String): Single<List<File>> {
+        return Single.defer {
+            log { "Searching with query $query" }
+            val folder = file(uri)
+                    .blockingGet()
+            val result = drive.files()
+                    .list()
+                    .setSpaces(spaces)
+                    .setQ("'${folder.id}' in parents and $query")
+                    .setFields(filesFields)
+                    .setPageSize(1000)
+                    .execute()
+            Single.just(result.files ?: emptyList())
         }
     }
 
