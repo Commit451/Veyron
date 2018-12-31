@@ -2,6 +2,7 @@ package com.commit451.veyron
 
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveRequest
+import com.google.api.services.drive.model.File
 import io.reactivex.Completable
 import io.reactivex.Single
 import java.io.InputStream
@@ -24,4 +25,8 @@ fun DriveRequest<Void>.toCompletable(): Completable {
         this.execute()
         Completable.complete()
     }
+}
+
+fun File.identify(): String {
+    return "${this.name}:${this.id}"
 }

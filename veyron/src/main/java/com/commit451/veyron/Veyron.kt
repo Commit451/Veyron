@@ -2,9 +2,9 @@
 
 package com.commit451.veyron
 
-import android.net.Uri
 import android.util.Log
 import com.commit451.okyo.Okyo
+import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.client.http.ByteArrayContent
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.model.File
@@ -20,29 +20,14 @@ import java.util.*
 class Veyron private constructor(builder: Builder) {
 
     companion object {
-
-        /**
-         * The root of the user's Google Drive, which they can see
-         */
-        const val SCHEME_ROOT = "root"
-
-        /**
-         * The root of the app folder, which only the current app can see and modify
-         */
-        const val SCHEME_APP = "app"
-
         private const val SPACE_APP_DATA = "appDataFolder"
-        private const val SPACE_DRIVE = "drive"
-        private const val SPACE_PHOTOS = "photos"
-
-        private const val ID_ROOT = "root"
-        private const val ID_APP = "app"
     }
 
     private var moshi: Moshi = builder.moshi ?: Moshi.Builder().build()
     private val verbose = builder.verbose
     private val drive: Drive = builder.drive
-    private val spaces: String = builder.spaces?.joinToString(",") { it.value } ?: SPACE_DRIVE
+    // We just support one space for now
+    private val space = SPACE_APP_DATA
     private val fields = "id,name,modifiedTime,size,mimeType"
     private val filesFields = "files($fields)"
 
@@ -51,32 +36,34 @@ class Veyron private constructor(builder: Builder) {
      */
     fun file(uri: String): Single<File> {
         return Single.defer {
-            val url = Uri.parse(uri)
             val segments = segments(uri)
-            val startFolder = startFolder(url)
+            val startFolder = startFolder()
             var runnerFolder: File = startFolder
 
+            log { "Attempting to access file at $uri" }
             segments.forEachIndexed { index, path ->
                 val result = drive.files()
                         .list()
-                        .setSpaces(spaces)
-                        .setQ("'${runnerFolder.id}' in parents and name = $path")
+                        .setSpaces(space)
+                        .setQ("'${runnerFolder.id}' in parents and name = '$path'")
                         .setFields(filesFields)
                         .setPageSize(1000)
                         .execute()
                 if (result != null && result.files.count() > 0) {
+                    log { "File at path $path found" }
                     runnerFolder = result.files.first()
                 } else {
-                    if (segments.lastIndex == index) {
-                        throw IllegalStateException("The file doesn't exist")
+                    log { "File at path $path not found, creating" }
+                    val file = if (index == segments.lastIndex) {
+                        fileMetadata(path, runnerFolder.id)
                     } else {
-                        val file = folderMetadata(path, runnerFolder.id)
-                        runnerFolder = drive.files().create(file)
-                                .execute()
+                        folderMetadata(path, runnerFolder.id)
                     }
+                    runnerFolder = drive.files().create(file)
+                            .execute()
                 }
             }
-            log { "Returning result for file at $uri" }
+            log { "Returning result for file ${runnerFolder.identify()} at $uri" }
             Single.just(runnerFolder)
         }
     }
@@ -94,7 +81,7 @@ class Veyron private constructor(builder: Builder) {
                     .blockingGet()
             val result = drive.files()
                     .list()
-                    .setSpaces(spaces)
+                    .setSpaces(space)
                     .setQ("'${folder.id}' in parents and $query")
                     .setFields(filesFields)
                     .setPageSize(1000)
@@ -109,7 +96,7 @@ class Veyron private constructor(builder: Builder) {
     fun <T> document(uri: String, type: Class<T>): Single<VeyronResult<T>> {
         return file(uri)
                 .flatMap {
-                    log { "Attempting to turn ${it.id} into a document" }
+                    log { "Attempting to turn ${it.identify()} into a document" }
                     val document = fileToDocument(it, type)
                     Single.just(VeyronResult(document))
                 }
@@ -136,17 +123,19 @@ class Veyron private constructor(builder: Builder) {
      */
     fun <T> save(uri: String, request: SaveRequest<T>): Completable {
         return Completable.defer {
-            val file = file("$uri/${request.title}")
+            val saveUri = "$uri/${request.title}"
+            log { "Saving to $saveUri" }
+            val file = file(saveUri)
                     .blockingGet()
 
             val json = moshi.adapter<T>(request.type)
                     .toJson(request.item)
-            val contentStream = ByteArrayContent.fromString("application/json", json)
+            val contentStream = ByteArrayContent.fromString(MIME_TYPE_JSON, json)
 
-            drive.files().update(file.id, null, contentStream)
+            val savedFile = drive.files().update(file.id, null, contentStream)
                     .execute()
 
-
+            log { "File $saveUri saved to file ${savedFile.identify()}" }
             Completable.complete()
         }
     }
@@ -166,16 +155,10 @@ class Veyron private constructor(builder: Builder) {
         }
     }
 
-    private fun startFolder(uri: Uri): File {
-        return when (uri.scheme) {
-            SCHEME_ROOT -> drive.files().get(ID_APP)
-                    .toSingle()
-                    .blockingGet()
-            SCHEME_APP -> drive.files().get(ID_ROOT)
-                    .toSingle()
-                    .blockingGet()
-            else -> throw IllegalArgumentException("The scheme must be one of `root` or `app`")
-        }
+    private fun startFolder(): File {
+        return drive.files().get(SPACE_APP_DATA)
+                .toSingle()
+                .blockingGet()
     }
 
     private fun folderMetadata(folderName: String, parentId: String): File {
@@ -185,21 +168,40 @@ class Veyron private constructor(builder: Builder) {
                 .setName(folderName)
     }
 
+    private fun fileMetadata(folderName: String, parentId: String): File {
+        return File()
+                .setParents(Collections.singletonList(parentId))
+                .setMimeType(MIME_TYPE_JSON)
+                .setName(folderName)
+    }
+
     private fun <T> fileToDocument(file: File?, type: Class<T>): T? {
         if (file == null) {
             log { "File is null, so no document" }
             return null
         }
-        val inputStream = drive.files()
-                .get(file.id)
-                .executeMediaAsInputStream()
-        val content = Okyo.readInputStreamAsString(inputStream)
-        val adapter = moshi.adapter<T>(type)
-        return adapter.fromJson(content)!!
+        return try {
+            val getRequest = drive.files()
+                    .get(file.id)
+            val inputStream = getRequest.executeMediaAsInputStream()
+            val content = Okyo.readInputStreamAsString(inputStream)
+            if (content.isEmpty()) {
+                return null
+            }
+            val adapter = moshi.adapter<T>(type)
+            adapter.fromJson(content)!!
+        } catch (exception: Exception) {
+            // If the file is found to be not downloadable, that means it was just created and has no content
+            if (exception is GoogleJsonResponseException && exception.details.errors.any { it.reason == "fileNotDownloadable" }) {
+                null
+            } else {
+                throw exception
+            }
+        }
     }
 
     private fun segments(uri: String): List<String> {
-        return uri.substringAfter("://").split("/")
+        return uri.split("/")
     }
 
     private fun log(messageBlock: () -> String) {
@@ -216,7 +218,6 @@ class Veyron private constructor(builder: Builder) {
 
         internal var moshi: Moshi? = null
         internal var verbose = false
-        internal var spaces: List<Space>? = null
 
         /**
          * Use a custom Mosh instance to serialize and deserialize. Needed if you are going to save
@@ -236,26 +237,10 @@ class Veyron private constructor(builder: Builder) {
         }
 
         /**
-         * The spaces to search for files. Defaults to "drive". See [Space]
-         */
-        fun spaces(spaces: List<Space>) {
-            this.spaces = spaces
-        }
-
-        /**
          * Build the instance
          */
         fun build(): Veyron {
             return Veyron(this)
         }
-    }
-
-    /**
-     * The folder spaces you can search and save to
-     */
-    enum class Space(internal val value: String) {
-        APP_DATA_FOLDER(SPACE_APP_DATA),
-        DRIVE(SPACE_DRIVE),
-        PHOTOS(SPACE_PHOTOS)
     }
 }

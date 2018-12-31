@@ -19,6 +19,7 @@ import com.google.android.material.snackbar.Snackbar
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
 import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
 import kotlinx.android.synthetic.main.activity_main.*
 import java.util.*
@@ -26,8 +27,8 @@ import java.util.*
 class MainActivity : DriveAppViewerBaseActivity() {
 
     companion object {
-        private const val URL_DOGS = "${Veyron.SCHEME_APP}://dogs"
-        private const val FILE_DOGS = "dogs.json"
+        private const val URL_DOGS = "favorite-dogs"
+        private const val FILE_DOGS = "dogs"
     }
 
     private lateinit var veyron: Veyron
@@ -35,6 +36,8 @@ class MainActivity : DriveAppViewerBaseActivity() {
     private var currentDogsResponse: DogsResponse? = null
 
     private lateinit var adapter: AloyAdapter<Dog, DogViewHolder>
+
+    private val disposables = CompositeDisposable()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -88,8 +91,8 @@ class MainActivity : DriveAppViewerBaseActivity() {
                     .subscribe({
                         snackbar("All dogs deleted")
                         load()
-                    }, {
-                        error(it)
+                    }, { throwable ->
+                        error(throwable)
                     })
         }
 
@@ -107,6 +110,10 @@ class MainActivity : DriveAppViewerBaseActivity() {
         })
 
         listDogs.adapter = adapter
+
+        swipeRefreshLayout.setOnRefreshListener {
+            load()
+        }
     }
 
     override fun onSignedIn(googleSignInAccount: GoogleSignInAccount) {
@@ -122,23 +129,33 @@ class MainActivity : DriveAppViewerBaseActivity() {
         load()
     }
 
+    override fun onDestroy() {
+        disposables.clear()
+        super.onDestroy()
+    }
+
     private fun load() {
-        veyron.document("$URL_DOGS/$FILE_DOGS", DogsResponse::class.java)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe({
-                    if (it.result != null) {
-                        currentDogsResponse = it.result
-                        it.result?.dogs?.let {
-                            adapter.set(it)
-                        }
-                    } else {
-                        Log.d("TAG", "No dogs created yet")
-                        adapter.clear()
-                    }
-                }, {
-                    error(it)
-                })
+        disposables.add(
+                veyron.document("$URL_DOGS/$FILE_DOGS", DogsResponse::class.java)
+                        .subscribeOn(Schedulers.io())
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe({
+                            swipeRefreshLayout.isRefreshing = false
+                            if (it.result != null) {
+                                currentDogsResponse = it.result
+                                it.result?.dogs?.let { dogs ->
+                                    adapter.set(dogs)
+                                }
+                            } else {
+                                Log.d("TAG", "No dogs created yet")
+                                adapter.clear()
+                                snackbar("No dogs found")
+                            }
+                        }, { throwable ->
+                            swipeRefreshLayout.isRefreshing = false
+                            error(throwable)
+                        })
+        )
     }
 
     private fun snackbar(message: String) {
