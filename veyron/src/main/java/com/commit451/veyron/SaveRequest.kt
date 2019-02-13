@@ -1,7 +1,9 @@
 package com.commit451.veyron
 
+import com.google.api.client.http.ByteArrayContent
+
 
 /**
  * Create a request to save data to Google Drive
  */
-class SaveRequest<T>(val type: Class<T>, val item: T, val title: String)
+class SaveRequest(val content: ByteArrayContent, val title: String)

@@ -32,15 +32,15 @@ class Veyron private constructor(builder: Builder) {
     private val filesFields = "files($fields)"
 
     /**
-     * Get the file at the URI. Creates intermediate folders and the actual file if they do not exist
+     * Get the file at the path. Creates intermediate folders and the actual file if they do not exist
      */
-    fun file(uri: String): Single<File> {
+    fun file(path: String): Single<File> {
         return Single.defer {
-            val segments = segments(uri)
+            val segments = segments(path)
             val startFolder = startFolder()
             var runnerFolder: File = startFolder
 
-            log { "Attempting to access file at $uri" }
+            log { "Attempting to access file at $path" }
             segments.forEachIndexed { index, path ->
                 val result = drive.files()
                         .list()
@@ -63,26 +63,28 @@ class Veyron private constructor(builder: Builder) {
                             .execute()
                 }
             }
-            log { "Returning result for file ${runnerFolder.identify()} at $uri" }
+            log { "Returning result for file ${runnerFolder.identify()} at $path" }
             Single.just(runnerFolder)
         }
     }
 
     /**
-     * Search for files at the given URI. Creates intermediate folders and the actual file if they do not exist. Example:
-     * app://dogs with a query of "spike" will query that result.
+     * Search for files at the given path. Creates intermediate folders and the actual file if they do not exist. Example:
+     * dogs/favorites with a query of "spike" will query that result.
      * See [Search for files](https://developers.google.com/drive/api/v3/search-parameters) for
      * documentation on how to create the query
      */
-    fun search(uri: String, query: String): Single<List<File>> {
+    fun search(path: String, query: String): Single<List<File>> {
         return Single.defer {
             log { "Searching with query $query" }
-            val folder = file(uri)
+            val folder = file(path)
                     .blockingGet()
+            var finalQuery = "'${folder.id}' in parents"
+            finalQuery += if (query.isBlank()) "" else " and $query"
             val result = drive.files()
                     .list()
                     .setSpaces(space)
-                    .setQ("'${folder.id}' in parents and $query")
+                    .setQ(finalQuery)
                     .setFields(filesFields)
                     .setPageSize(1000)
                     .execute()
@@ -91,10 +93,20 @@ class Veyron private constructor(builder: Builder) {
     }
 
     /**
+     * List all files at the given path. Creates intermediate folders and the actual file if they do not exist. Example:
+     * dogs/favorites with a query of "spike" will query that result.
+     */
+    fun files(path: String): Single<List<File>> {
+        return Single.defer {
+            search(path, "")
+        }
+    }
+
+    /**
      * Get the document at a given path
      */
-    fun <T> document(uri: String, type: Class<T>): Single<VeyronResult<T>> {
-        return file(uri)
+    fun <T> document(path: String, type: Class<T>): Single<VeyronResult<T>> {
+        return file(path)
                 .flatMap {
                     log { "Attempting to turn ${it.identify()} into a document" }
                     val document = fileToDocument(it, type)
@@ -103,10 +115,30 @@ class Veyron private constructor(builder: Builder) {
     }
 
     /**
+     * Get all files and convert them to documents at a given path
+     */
+    fun <T> documents(path: String, type: Class<T>): Single<List<T>> {
+        return files(path)
+                .map {
+                    it.map { file -> fileToDocument(file, type)!! }
+                }
+    }
+
+    /**
+     * Get all files by a certain query and convert them to documents
+     */
+    fun <T> documents(path: String, query: String, type: Class<T>): Single<List<T>> {
+        return search(path, query)
+                .map {
+                    it.map { file -> fileToDocument(file, type)!! }
+                }
+    }
+
+    /**
      * Gets the file's media as a string at a given path
      */
-    fun string(uri: String): Single<String> {
-        return file(uri)
+    fun string(path: String): Single<String> {
+        return file(path)
                 .flatMap {
                     drive.files().get(it.id)
                             .asInputStream()
@@ -117,35 +149,55 @@ class Veyron private constructor(builder: Builder) {
     }
 
     /**
-     * Save the data within the [SaveRequest] at the given uri. Note that a new file will be created
-     * base on the [SaveRequest]. The file name should not be included in the uri.
+     * Save the data within the [SaveDocumentRequest] at the given path.
      * Note that file names are considered unique and any file with the same title will be overwritten.
      */
-    fun <T> save(uri: String, request: SaveRequest<T>): Completable {
+    fun <T> save(path: String, request: SaveDocumentRequest<T>): Completable {
         return Completable.defer {
-            val saveUri = "$uri/${request.title}"
-            log { "Saving to $saveUri" }
-            val file = file(saveUri)
-                    .blockingGet()
-
             val json = moshi.adapter<T>(request.type)
                     .toJson(request.item)
-            val contentStream = ByteArrayContent.fromString(MIME_TYPE_JSON, json)
+            save(path, request.title, json)
+        }
+    }
 
-            val savedFile = drive.files().update(file.id, null, contentStream)
+    /**
+     * Save the data within the [SaveStringRequest] at the given path.
+     * Note that file names are considered unique and any file with the same title will be overwritten.
+     */
+    fun save(path: String, request: SaveStringRequest): Completable {
+        return Completable.defer {
+            save(path, request.title, request.content)
+        }
+    }
+
+    private fun save(path: String, title: String, content: String): Completable {
+        return Completable.defer {
+            val contentStream = ByteArrayContent.fromString(MIME_TYPE_JSON, content)
+            save(path, title, contentStream)
+        }
+    }
+
+    private fun save(path: String, title: String, content: ByteArrayContent): Completable {
+        return Completable.defer {
+            val savePath = "$path/$title"
+            log { "Saving to $savePath" }
+            val file = file(savePath)
+                    .blockingGet()
+
+            val savedFile = drive.files().update(file.id, null, content)
                     .execute()
 
-            log { "File $saveUri saved to file ${savedFile.identify()}" }
+            log { "File $savePath saved to file ${savedFile.identify()}" }
             Completable.complete()
         }
     }
 
     /**
-     * Deletes the file or folder at the given uri.
+     * Deletes the file or folder at the given path.
      */
-    fun delete(uri: String): Completable {
+    fun delete(path: String): Completable {
         return Completable.defer {
-            val fileId = file(uri)
+            val fileId = file(path)
                     .blockingGet()
                     .id
             drive.files().delete(fileId)
@@ -200,8 +252,8 @@ class Veyron private constructor(builder: Builder) {
         }
     }
 
-    private fun segments(uri: String): List<String> {
-        return uri.split("/")
+    private fun segments(path: String): List<String> {
+        return path.split("/")
     }
 
     private fun log(messageBlock: () -> String) {

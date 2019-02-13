@@ -12,7 +12,9 @@ import com.commit451.adapterlayout.AdapterLayout
 import com.commit451.aloy.AloyAdapter
 import com.commit451.driveappfolderviewer.DriveAppFolderViewer
 import com.commit451.driveappfolderviewer.DriveAppViewerBaseActivity
+import com.commit451.veyron.SaveDocumentRequest
 import com.commit451.veyron.SaveRequest
+import com.commit451.veyron.SaveStringRequest
 import com.commit451.veyron.Veyron
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.material.snackbar.Snackbar
@@ -27,7 +29,7 @@ import java.util.*
 class MainActivity : DriveAppViewerBaseActivity() {
 
     companion object {
-        private const val URL_DOGS = "favorite-dogs"
+        private const val PATH_DOGS = "favorite-dogs"
         private const val FILE_DOGS = "dogs"
     }
 
@@ -68,9 +70,9 @@ class MainActivity : DriveAppViewerBaseActivity() {
             //in the case where we created a new list
             response.dogs = dogs
             dogs.add(dog)
-            val saveRequest = SaveRequest(DogsResponse::class.java, response, FILE_DOGS)
+            val saveRequest = SaveDocumentRequest(DogsResponse::class.java, response, FILE_DOGS)
 
-            veyron.save(URL_DOGS, saveRequest)
+            veyron.save(PATH_DOGS, saveRequest)
                     .subscribeOn(Schedulers.io())
                     .observeOn(AndroidSchedulers.mainThread())
                     .subscribe({
@@ -80,12 +82,22 @@ class MainActivity : DriveAppViewerBaseActivity() {
                         error(throwable)
                     })
 
+            val request = SaveStringRequest("this is the content", dog.name)
+            veyron.save(PATH_DOGS, request)
+                    .subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe({
+                        log("Saved random file with ${dog.name}")
+                    }, {
+                        error(it)
+                    })
+
         }
 
         buttonDeleteAll.setOnClickListener {
             //we also have to delete the local
             currentDogsResponse?.dogs?.clear()
-            veyron.delete(URL_DOGS)
+            veyron.delete(PATH_DOGS)
                     .subscribeOn(Schedulers.io())
                     .observeOn(AndroidSchedulers.mainThread())
                     .subscribe({
@@ -136,7 +148,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
 
     private fun load() {
         disposables.add(
-                veyron.document("$URL_DOGS/$FILE_DOGS", DogsResponse::class.java)
+                veyron.document("$PATH_DOGS/$FILE_DOGS", DogsResponse::class.java)
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe({
@@ -156,11 +168,25 @@ class MainActivity : DriveAppViewerBaseActivity() {
                             error(throwable)
                         })
         )
+        disposables.add(
+                veyron.files(PATH_DOGS)
+                        .subscribeOn(Schedulers.io())
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe ({
+                            log("Number of files at path $PATH_DOGS: ${it.size}")
+                        }, {
+                            error(it)
+                        })
+        )
     }
 
     private fun snackbar(message: String) {
         Snackbar.make(root, message, Snackbar.LENGTH_SHORT)
                 .show()
+    }
+
+    private fun log(message: String) {
+        Log.d("Sample", message)
     }
 
     private fun error(t: Throwable) {

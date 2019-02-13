@@ -17,14 +17,11 @@ val veyron = Veyron.Builder(driveResourceClient)
 ### Create
 ```kotlin
 val dog = Dog()
-val metadataChangeSet = MetadataChangeSet.Builder()
-        .setTitle("dog.json")
-        .build()
-val saveRequest = SaveRequest(Dog::class.java, thing, metadataChangeSet)
+val saveRequest = SaveDocumentRequest(Dog::class.java, "dog.json", thing)
 
-val url = "${Veyron.SCHEME_APP}://info"
+val path = "info"
 //RxJava 2 Single is returned
-veyron.save(url, saveRequest)
+veyron.save(path, saveRequest)
         .subscribeOn(Schedulers.io())
         .observeOn(AndroidSchedulers.mainThread())
         .subscribe({
@@ -36,8 +33,8 @@ veyron.save(url, saveRequest)
 
 ### Fetch
 ```kotlin
-val url = "${Veyron.SCHEME_APP}://info/dog.json"
-veyron.document(url, Dog::class.java)
+val path = "info/dog.json"
+veyron.document(path, Dog::class.java)
     .subscribeOn(Schedulers.io())
     .observeOn(AndroidSchedulers.mainThread())
     .subscribe({
@@ -49,12 +46,12 @@ veyron.document(url, Dog::class.java)
 
 ### Delete
 ```kotlin
-val url = "${Veyron.SCHEME_APP}://info/dog.json"
-veyron.delete(url)
+val path = "info/dog.json"
+veyron.delete(path)
     .subscribeOn(Schedulers.io())
     .observeOn(AndroidSchedulers.mainThread())
     .subscribe({
-        snackbar("Dog deleted")
+        snackbar("Dogs deleted")
     }, {
         it.printStackTrace()
     })
@@ -63,8 +60,8 @@ veyron.delete(url)
 ### Other Operations
 Other operations you can perform:
 - veyron.file(url)
-- veyron.folder(url)
-- veyron.driveId(url)
+- veyron.files(url)
+- veyron.search(url)
 
 ## Build Locally
 You will need to set up a Google Cloud project with the same package name as the sample, and create a keystore that works with the details within the app's `build.gradle` file. Then, create a new `gradle.properties` file that looks like so:
