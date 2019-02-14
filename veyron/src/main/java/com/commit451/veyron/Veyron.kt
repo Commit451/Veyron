@@ -69,10 +69,11 @@ class Veyron private constructor(builder: Builder) {
     }
 
     /**
-     * Search for files at the given path. Creates intermediate folders and the actual file if they do not exist. Example:
-     * dogs/favorites with a query of "spike" will query that result.
+     * Search for files at the given path. Creates intermediate folders if they do not exist.
+     * Example: A path of "dogs/favorites" with a query of "name = 'spike'" will query the dogs/favorites
+     * folder for all files with a title equal to "spike".
      * See [Search for files](https://developers.google.com/drive/api/v3/search-parameters) for
-     * documentation on how to create the query
+     * documentation on how to create the query.
      */
     fun search(path: String, query: String): Single<List<File>> {
         return Single.defer {

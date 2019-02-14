@@ -59,9 +59,9 @@ veyron.delete(path)
 
 ### Other Operations
 Other operations you can perform:
-- veyron.file(url)
-- veyron.files(url)
-- veyron.search(url)
+- veyron.file(path)
+- veyron.files(path)
+- veyron.search(path, query)
 
 ## Build Locally
 You will need to set up a Google Cloud project with the same package name as the sample, and create a keystore that works with the details within the app's `build.gradle` file. Then, create a new `gradle.properties` file that looks like so:
@@ -72,7 +72,7 @@ KEYSTORE_PASSWORD=keystorepasswordhere
 License
 --------
 
-    Copyright 2018 Commit 451
+    Copyright 2019 Commit 451
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
