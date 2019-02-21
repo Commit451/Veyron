@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    android:background="@color/colorAccent"
+    android:elevation="2dp"
     android:orientation="vertical"
     android:padding="16dp"
     tools:text="Hi">
@@ -10,14 +13,16 @@
     <TextView
         android:id="@+id/text"
         android:layout_width="wrap_content"
-        tools:text="Doogy"
+        android:layout_height="wrap_content"
+        android:textColor="@android:color/white"
         android:textSize="14sp"
-        android:layout_height="wrap_content" />
+        tools:text="Doogy" />
 
     <TextView
         android:id="@+id/textCreated"
         android:layout_width="wrap_content"
-        android:textSize="12sp"
         android:layout_height="wrap_content"
+        android:textColor="@android:color/white"
+        android:textSize="12sp"
         tools:text="11/2/2018" />
 </LinearLayout>

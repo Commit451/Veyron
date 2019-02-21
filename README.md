@@ -20,7 +20,7 @@ val dog = Dog()
 val saveRequest = SaveDocumentRequest(Dog::class.java, "dog.json", thing)
 
 val path = "info"
-//RxJava 2 Single is returned
+//RxJava Single is returned
 veyron.save(path, saveRequest)
         .subscribeOn(Schedulers.io())
         .observeOn(AndroidSchedulers.mainThread())

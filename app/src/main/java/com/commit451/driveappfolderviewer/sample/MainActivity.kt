@@ -7,14 +7,12 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.commit451.adapterlayout.AdapterLayout
 import com.commit451.aloy.AloyAdapter
 import com.commit451.driveappfolderviewer.DriveAppFolderViewer
 import com.commit451.driveappfolderviewer.DriveAppViewerBaseActivity
-import com.commit451.veyron.SaveDocumentRequest
 import com.commit451.veyron.SaveRequest
-import com.commit451.veyron.SaveStringRequest
 import com.commit451.veyron.Veyron
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.material.snackbar.Snackbar
@@ -29,7 +27,8 @@ import java.util.*
 class MainActivity : DriveAppViewerBaseActivity() {
 
     companion object {
-        private const val PATH_DOGS = "favorite-dogs"
+        private const val PATH_DOGS = "just-dogs"
+        private const val PATH_FAVORITE_DOGS = "favorite-dogs"
         private const val FILE_DOGS = "dogs"
     }
 
@@ -38,6 +37,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
     private var currentDogsResponse: DogsResponse? = null
 
     private lateinit var adapter: AloyAdapter<Dog, DogViewHolder>
+    private lateinit var adapterFavorites: AloyAdapter<Dog, DogViewHolder>
 
     private val disposables = CompositeDisposable()
 
@@ -70,28 +70,17 @@ class MainActivity : DriveAppViewerBaseActivity() {
             //in the case where we created a new list
             response.dogs = dogs
             dogs.add(dog)
-            val saveRequest = SaveDocumentRequest(DogsResponse::class.java, response, FILE_DOGS)
+            val saveRequest = SaveRequest.Document(FILE_DOGS, DogsResponse::class.java, response)
 
             veyron.save(PATH_DOGS, saveRequest)
                     .subscribeOn(Schedulers.io())
                     .observeOn(AndroidSchedulers.mainThread())
                     .subscribe({
-                        snackbar("Saved")
-                        load()
+                        snackbar("Created dog")
+                        loadDogs()
                     }, { throwable ->
                         error(throwable)
                     })
-
-            val request = SaveStringRequest("this is the content", dog.name)
-            veyron.save(PATH_DOGS, request)
-                    .subscribeOn(Schedulers.io())
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe({
-                        log("Saved random file with ${dog.name}")
-                    }, {
-                        error(it)
-                    })
-
         }
 
         buttonDeleteAll.setOnClickListener {
@@ -102,30 +91,60 @@ class MainActivity : DriveAppViewerBaseActivity() {
                     .observeOn(AndroidSchedulers.mainThread())
                     .subscribe({
                         snackbar("All dogs deleted")
+                        loadDogs()
+                    }, { throwable ->
+                        error(throwable)
+                    })
+        }
+
+        buttonNewFavoriteDog.setOnClickListener {
+            val dog = Dog()
+            dog.name = UUID.randomUUID().toString()
+            dog.created = Date()
+
+            val saveRequest = SaveRequest.String(dog.name, "asdf")
+
+            veyron.save(PATH_FAVORITE_DOGS, saveRequest)
+                    .subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe({
+                        snackbar("Created favorite dog")
+                        loadFavorites()
+                    }, { throwable ->
+                        error(throwable)
+                    })
+        }
+
+        buttonDeleteAllFavorite.setOnClickListener {
+            adapterFavorites.clear()
+            veyron.delete(PATH_FAVORITE_DOGS)
+                    .subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe({
+                        snackbar("All favorite dogs deleted")
                         load()
                     }, { throwable ->
                         error(throwable)
                     })
         }
 
-        //later, in onCreate for example:
         adapter = AloyAdapter({ parent, _ ->
-            val holder = DogViewHolder.inflate(parent)
-            holder.itemView.setOnClickListener {
-                val cheese = adapter.items[AdapterLayout.getAdapterPosition(holder)]
-                Snackbar.make(root, "${cheese.name} clicked", Snackbar.LENGTH_SHORT)
-                        .show()
-            }
-            holder
+            DogViewHolder.inflate(parent)
         }, { viewHolder, _, item ->
             viewHolder.bind(item)
         })
 
+        adapterFavorites = AloyAdapter({ parent, _ ->
+            DogViewHolder.inflate(parent)
+        }, { viewHolder, _, item ->
+            viewHolder.bind(item)
+        })
+
+        listDogs.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         listDogs.adapter = adapter
 
-        swipeRefreshLayout.setOnRefreshListener {
-            load()
-        }
+        listFavoriteDogs.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        listFavoriteDogs.adapter = adapterFavorites
     }
 
     override fun onSignedIn(googleSignInAccount: GoogleSignInAccount) {
@@ -147,12 +166,16 @@ class MainActivity : DriveAppViewerBaseActivity() {
     }
 
     private fun load() {
+        loadDogs()
+        loadFavorites()
+    }
+
+    private fun loadDogs() {
         disposables.add(
                 veyron.document("$PATH_DOGS/$FILE_DOGS", DogsResponse::class.java)
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe({
-                            swipeRefreshLayout.isRefreshing = false
                             if (it.result != null) {
                                 currentDogsResponse = it.result
                                 it.result?.dogs?.let { dogs ->
@@ -164,15 +187,26 @@ class MainActivity : DriveAppViewerBaseActivity() {
                                 snackbar("No dogs found")
                             }
                         }, { throwable ->
-                            swipeRefreshLayout.isRefreshing = false
                             error(throwable)
                         })
         )
+    }
+
+    private fun loadFavorites() {
         disposables.add(
-                veyron.files(PATH_DOGS)
+                veyron.files(PATH_FAVORITE_DOGS)
+                        .map {
+                            it.map { file ->
+                                val dog = Dog()
+                                dog.name = file.name
+                                //dog.created = Date(file.createdTime.value)
+                                dog
+                            }
+                        }
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
-                        .subscribe ({
+                        .subscribe({
+                            adapterFavorites.set(it)
                             log("Number of files at path $PATH_DOGS: ${it.size}")
                         }, {
                             error(it)
@@ -205,12 +239,16 @@ class MainActivity : DriveAppViewerBaseActivity() {
             }
         }
 
-        val text: TextView = view.findViewById(R.id.text)
-        val textCreated: TextView = view.findViewById(R.id.textCreated)
+        private val text: TextView = view.findViewById(R.id.text)
+        private val textCreated: TextView = view.findViewById(R.id.textCreated)
 
         fun bind(dog: Dog) {
             text.text = dog.name
-            textCreated.text = "${DateFormat.getLongDateFormat(text.context).format(dog.created)} at ${DateFormat.getTimeFormat(text.context).format(dog.created)}"
+            if (dog.created == null) {
+                textCreated.text = "Unknown"
+            } else {
+                textCreated.text = "${DateFormat.getLongDateFormat(text.context).format(dog.created)} at ${DateFormat.getTimeFormat(text.context).format(dog.created)}"
+            }
         }
     }
 }

@@ -150,24 +150,33 @@ class Veyron private constructor(builder: Builder) {
     }
 
     /**
-     * Save the data within the [SaveDocumentRequest] at the given path.
+     * Save the data within the [SaveRequest] at the given path.
      * Note that file names are considered unique and any file with the same title will be overwritten.
      */
-    fun <T> save(path: String, request: SaveDocumentRequest<T>): Completable {
+    fun save(path: String, request: SaveRequest): Completable {
+        return Completable.defer {
+            when (request) {
+                is SaveRequest.ByteArrayContent -> save(path, request.title, request.content)
+                is SaveRequest.String -> save(path, request.title, request.content)
+                is SaveRequest.Document<*> -> save(path, request)
+            }
+        }
+    }
+
+    fun save(path: String, requests: List<SaveRequest>): Completable {
+        return Completable.defer {
+            requests.forEach {
+
+            }
+            Completable.complete()
+        }
+    }
+
+    private fun <T> save(path: String, request: SaveRequest.Document<T>): Completable {
         return Completable.defer {
             val json = moshi.adapter<T>(request.type)
                     .toJson(request.item)
             save(path, request.title, json)
-        }
-    }
-
-    /**
-     * Save the data within the [SaveStringRequest] at the given path.
-     * Note that file names are considered unique and any file with the same title will be overwritten.
-     */
-    fun save(path: String, request: SaveStringRequest): Completable {
-        return Completable.defer {
-            save(path, request.title, request.content)
         }
     }
 
