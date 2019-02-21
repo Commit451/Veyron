@@ -13,7 +13,6 @@ import io.reactivex.Completable
 import io.reactivex.Single
 import java.util.*
 import io.reactivex.schedulers.Schedulers
-import io.reactivex.internal.operators.single.SingleInternalHelper.toFlowable
 import io.reactivex.Flowable
 
 
@@ -25,6 +24,7 @@ class Veyron private constructor(builder: Builder) {
 
     companion object {
         private const val SPACE_APP_DATA = "appDataFolder"
+        private const val PAGE_SIZE = 1000
     }
 
     private var moshi: Moshi = builder.moshi ?: Moshi.Builder().build()
@@ -33,7 +33,7 @@ class Veyron private constructor(builder: Builder) {
     // We just support one space for now
     private val space = SPACE_APP_DATA
     private val fields = "id,name,modifiedTime,size,mimeType"
-    private val filesFields = "files($fields)"
+    private val filesFields = "nextPageToken, files($fields)"
 
     /**
      * Get the file at the path. Creates intermediate folders and the actual file if they do not exist
@@ -62,14 +62,30 @@ class Veyron private constructor(builder: Builder) {
             val folder = folderResult.result ?: return@defer Single.just(listOf<File>())
             var finalQuery = "'${folder.id}' in parents"
             finalQuery += if (query.isBlank()) "" else " and $query"
-            val result = drive.files()
-                    .list()
-                    .setSpaces(space)
-                    .setQ(finalQuery)
-                    .setFields(filesFields)
-                    .setPageSize(1000)
-                    .execute()
-            Single.just(result.files ?: emptyList())
+            //empty first, since that will not break the loop
+            var nextPageToken: String? = ""
+            val results= mutableListOf<File>()
+            while (nextPageToken != null) {
+                val result = drive.files()
+                        .list()
+                        .apply {
+                            spaces = space
+                            q = finalQuery
+                            fields = filesFields
+                            pageSize = PAGE_SIZE
+                            if (!nextPageToken.isNullOrEmpty()) {
+                                pageToken = nextPageToken
+                            }
+                        }
+                        .execute()
+                log { "Adding ${result.files.size} files" }
+                results.addAll(result.files)
+                nextPageToken = result.nextPageToken
+                if (nextPageToken != null) {
+                    log { "Loading next page with token $nextPageToken" }
+                }
+            }
+            Single.just(results)
         }
     }
 
@@ -100,19 +116,9 @@ class Veyron private constructor(builder: Builder) {
     }
 
     /**
-     * Get all files and convert them to documents at a given path
+     * Get all files and convert them to documents at a given path (with optional query)
      */
-    fun <T> documents(path: String, type: Class<T>): Single<List<T>> {
-        return files(path)
-                .map {
-                    it.map { file -> fileToDocument(file, type)!! }
-                }
-    }
-
-    /**
-     * Get all files by a certain query and convert them to documents
-     */
-    fun <T> documents(path: String, query: String, type: Class<T>): Single<List<T>> {
+    fun <T> documents(path: String, type: Class<T>, query: String = ""): Single<List<T>> {
         return search(path, query)
                 .map {
                     it.map { file -> fileToDocument(file, type)!! }
@@ -196,7 +202,7 @@ class Veyron private constructor(builder: Builder) {
                         .setSpaces(space)
                         .setQ("'${runnerFolder.id}' in parents and name = '$path'")
                         .setFields(filesFields)
-                        .setPageSize(1000)
+                        .setPageSize(1)
                         .execute()
                 if (result != null && result.files.count() > 0) {
                     log { "File at path $path found" }

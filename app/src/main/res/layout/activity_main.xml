@@ -20,79 +20,85 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <androidx.core.widget.NestedScrollView
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefreshLayout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <LinearLayout
+        <androidx.core.widget.NestedScrollView
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:layout_height="match_parent">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_margin="8dp"
-                android:text="Dogs"
-                android:textSize="22sp" />
-
-            <Button
-                android:id="@+id/buttonNewDog"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:text="Create New Dog" />
-
-            <Button
-                android:id="@+id/buttonDeleteAll"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:text="Delete All Dogs" />
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/listDogs"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical" />
+                android:orientation="vertical">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_margin="8dp"
-                android:text="Favorite Dogs"
-                android:textSize="22sp" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_margin="8dp"
+                    android:text="Dogs"
+                    android:textSize="22sp" />
 
-            <Button
-                android:id="@+id/buttonNewFavoriteDog"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:text="Create New Favorite Dog" />
+                <Button
+                    android:id="@+id/buttonNewDog"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:text="Create New Dog" />
 
-            <Button
-                android:id="@+id/buttonManyFavoriteDog"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:text="Create Many New Favorite Dogs" />
+                <Button
+                    android:id="@+id/buttonDeleteAll"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:text="Delete All Dogs" />
 
-            <Button
-                android:id="@+id/buttonDeleteAllFavorite"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:text="Delete All Favorite Dogs" />
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/listDogs"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/listFavoriteDogs"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_margin="8dp"
+                    android:text="Favorite Dogs"
+                    android:textSize="22sp" />
 
-        </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
+                <Button
+                    android:id="@+id/buttonNewFavoriteDog"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:text="Create New Favorite Dog" />
+
+                <Button
+                    android:id="@+id/buttonManyFavoriteDog"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:text="Create Many New Favorite Dogs" />
+
+                <Button
+                    android:id="@+id/buttonDeleteAllFavorite"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:text="Delete All Favorite Dogs" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/listFavoriteDogs"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -17,10 +17,10 @@ val veyron = Veyron.Builder(driveResourceClient)
 ### Create
 ```kotlin
 val dog = Dog()
-val saveRequest = SaveDocumentRequest(Dog::class.java, "dog.json", thing)
+val saveRequest = SaveRequest.Document("dog.json", Dog::class.java, thing)
 
 val path = "info"
-//RxJava Single is returned
+//RxJava Completable is returned
 veyron.save(path, saveRequest)
         .subscribeOn(Schedulers.io())
         .observeOn(AndroidSchedulers.mainThread())
@@ -61,7 +61,10 @@ veyron.delete(path)
 Other operations you can perform:
 - veyron.file(path)
 - veyron.files(path)
+- veyron.documents(path)
 - veyron.search(path, query)
+- veyron.string(path)
+- veyron.save(path, listOfSaveRequests())
 
 ## Build Locally
 You will need to set up a Google Cloud project with the same package name as the sample, and create a keystore that works with the details within the app's `build.gradle` file. Then, create a new `gradle.properties` file that looks like so:
@@ -71,8 +74,9 @@ KEYSTORE_PASSWORD=keystorepasswordhere
 
 ## Note
 A few things to note about this library:
+- Assumes unique file and folder names. Unlike a normal file system, Google Drive allows you to create folders and files at the same level with the same name. We will always fetch/return the first result we find if there are duplicates.
 - It has dependencies. Please check them and understand what they do.
-- Each query is limited to 1,000 results. This is something that will hopefully change one day, but it is the limit for now.
+- Each query is limited to 1,000 results, but we fetch all results. We do not currently support pagination or "infinite loading"
 
 License
 --------

@@ -1,14 +1,8 @@
 package com.commit451.driveappfolderviewer.sample
 
 import android.os.Bundle
-import android.text.format.DateFormat
 import android.util.Log
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
-import android.widget.TextView
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.commit451.aloy.AloyAdapter
 import com.commit451.driveappfolderviewer.DriveAppFolderViewer
 import com.commit451.driveappfolderviewer.DriveAppViewerBaseActivity
@@ -117,7 +111,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
 
         buttonManyFavoriteDog.setOnClickListener {
             val dogSaveRequests = mutableListOf<SaveRequest.String>()
-            for (i in 0 .. 9) {
+            for (i in 0..9) {
                 val dog = Dog()
                 dog.name = UUID.randomUUID().toString()
                 dog.created = Date()
@@ -167,6 +161,8 @@ class MainActivity : DriveAppViewerBaseActivity() {
 
         listFavoriteDogs.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         listFavoriteDogs.adapter = adapterFavorites
+
+        swipeRefreshLayout.setOnRefreshListener { load() }
     }
 
     override fun onSignedIn(googleSignInAccount: GoogleSignInAccount) {
@@ -193,11 +189,13 @@ class MainActivity : DriveAppViewerBaseActivity() {
     }
 
     private fun loadDogs() {
+        swipeRefreshLayout.isRefreshing = true
         disposables.add(
                 veyron.document("$PATH_DOGS/$FILE_DOGS", DogsResponse::class.java)
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe({
+                            swipeRefreshLayout.isRefreshing = false
                             if (it.result != null) {
                                 currentDogsResponse = it.result
                                 it.result?.dogs?.let { dogs ->
@@ -211,6 +209,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
     }
 
     private fun loadFavorites() {
+        swipeRefreshLayout.isRefreshing = true
         disposables.add(
                 veyron.files(PATH_FAVORITE_DOGS)
                         .map {
@@ -224,6 +223,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe({
+                            swipeRefreshLayout.isRefreshing = false
                             adapterFavorites.set(it)
                         }, {
                             error(it)
@@ -241,31 +241,8 @@ class MainActivity : DriveAppViewerBaseActivity() {
     }
 
     private fun error(t: Throwable) {
+        swipeRefreshLayout.isRefreshing = false
         t.printStackTrace()
         snackbar("Something bad happened. Check the logs")
-    }
-
-    class DogViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-
-        companion object {
-
-            fun inflate(parent: ViewGroup): DogViewHolder {
-                val view = LayoutInflater.from(parent.context)
-                        .inflate(R.layout.item_dog, parent, false)
-                return DogViewHolder(view)
-            }
-        }
-
-        private val text: TextView = view.findViewById(R.id.text)
-        private val textCreated: TextView = view.findViewById(R.id.textCreated)
-
-        fun bind(dog: Dog) {
-            text.text = dog.name
-            if (dog.created == null) {
-                textCreated.text = "Unknown"
-            } else {
-                textCreated.text = "${DateFormat.getLongDateFormat(text.context).format(dog.created)} at ${DateFormat.getTimeFormat(text.context).format(dog.created)}"
-            }
-        }
     }
 }
