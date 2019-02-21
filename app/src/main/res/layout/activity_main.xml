@@ -72,6 +72,13 @@
                 android:text="Create New Favorite Dog" />
 
             <Button
+                android:id="@+id/buttonManyFavoriteDog"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:text="Create Many New Favorite Dogs" />
+
+            <Button
                 android:id="@+id/buttonDeleteAllFavorite"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

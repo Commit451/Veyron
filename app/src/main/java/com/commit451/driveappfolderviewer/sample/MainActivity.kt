@@ -115,6 +115,28 @@ class MainActivity : DriveAppViewerBaseActivity() {
                     })
         }
 
+        buttonManyFavoriteDog.setOnClickListener {
+            val dogSaveRequests = mutableListOf<SaveRequest.String>()
+            for (i in 0 .. 9) {
+                val dog = Dog()
+                dog.name = UUID.randomUUID().toString()
+                dog.created = Date()
+
+                val saveRequest = SaveRequest.String(dog.name, "asdf")
+
+                dogSaveRequests.add(saveRequest)
+            }
+            veyron.save(PATH_FAVORITE_DOGS, dogSaveRequests)
+                    .subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe({
+                        snackbar("Created ${dogSaveRequests.size} favorite dogs")
+                        loadFavorites()
+                    }, { throwable ->
+                        error(throwable)
+                    })
+        }
+
         buttonDeleteAllFavorite.setOnClickListener {
             adapterFavorites.clear()
             veyron.delete(PATH_FAVORITE_DOGS)
@@ -181,10 +203,6 @@ class MainActivity : DriveAppViewerBaseActivity() {
                                 it.result?.dogs?.let { dogs ->
                                     adapter.set(dogs)
                                 }
-                            } else {
-                                Log.d("TAG", "No dogs created yet")
-                                adapter.clear()
-                                snackbar("No dogs found")
                             }
                         }, { throwable ->
                             error(throwable)
@@ -207,7 +225,6 @@ class MainActivity : DriveAppViewerBaseActivity() {
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe({
                             adapterFavorites.set(it)
-                            log("Number of files at path $PATH_DOGS: ${it.size}")
                         }, {
                             error(it)
                         })

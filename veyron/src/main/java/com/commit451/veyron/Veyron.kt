@@ -12,6 +12,10 @@ import com.squareup.moshi.Moshi
 import io.reactivex.Completable
 import io.reactivex.Single
 import java.util.*
+import io.reactivex.schedulers.Schedulers
+import io.reactivex.internal.operators.single.SingleInternalHelper.toFlowable
+import io.reactivex.Flowable
+
 
 /**
  * Save and fetch files in JSON or raw format from Google Drive in a REST-like way.
@@ -35,37 +39,11 @@ class Veyron private constructor(builder: Builder) {
      * Get the file at the path. Creates intermediate folders and the actual file if they do not exist
      */
     fun file(path: String): Single<File> {
-        return Single.defer {
-            val segments = segments(path)
-            val startFolder = startFolder()
-            var runnerFolder: File = startFolder
-
-            log { "Attempting to access file at $path" }
-            segments.forEachIndexed { index, path ->
-                val result = drive.files()
-                        .list()
-                        .setSpaces(space)
-                        .setQ("'${runnerFolder.id}' in parents and name = '$path'")
-                        .setFields(filesFields)
-                        .setPageSize(1000)
-                        .execute()
-                if (result != null && result.files.count() > 0) {
-                    log { "File at path $path found" }
-                    runnerFolder = result.files.first()
-                } else {
-                    log { "File at path $path not found, creating" }
-                    val file = if (index == segments.lastIndex) {
-                        fileMetadata(path, runnerFolder.id)
-                    } else {
-                        folderMetadata(path, runnerFolder.id)
-                    }
-                    runnerFolder = drive.files().create(file)
-                            .execute()
+        return file(path, true)
+                .map {
+                    //Never null, there will always be a result
+                    it.result!!
                 }
-            }
-            log { "Returning result for file ${runnerFolder.identify()} at $path" }
-            Single.just(runnerFolder)
-        }
     }
 
     /**
@@ -78,8 +56,10 @@ class Veyron private constructor(builder: Builder) {
     fun search(path: String, query: String): Single<List<File>> {
         return Single.defer {
             log { "Searching with query $query" }
-            val folder = file(path)
+            val folderResult = file(path, false)
                     .blockingGet()
+            // If folder doesn't exist, return early.
+            val folder = folderResult.result ?: return@defer Single.just(listOf<File>())
             var finalQuery = "'${folder.id}' in parents"
             finalQuery += if (query.isBlank()) "" else " and $query"
             val result = drive.files()
@@ -107,11 +87,15 @@ class Veyron private constructor(builder: Builder) {
      * Get the document at a given path
      */
     fun <T> document(path: String, type: Class<T>): Single<VeyronResult<T>> {
-        return file(path)
+        return file(path, false)
                 .flatMap {
-                    log { "Attempting to turn ${it.identify()} into a document" }
-                    val document = fileToDocument(it, type)
-                    Single.just(VeyronResult(document))
+                    if (it.result != null) {
+                        log { "Attempting to turn ${it.result.identify()} into a document" }
+                        val document = fileToDocument(it.result, type)
+                        Single.just(VeyronResult(document))
+                    } else {
+                        Single.just(VeyronResult.EMPTY)
+                    }
                 }
     }
 
@@ -138,14 +122,18 @@ class Veyron private constructor(builder: Builder) {
     /**
      * Gets the file's media as a string at a given path
      */
-    fun string(path: String): Single<String> {
-        return file(path)
+    fun string(path: String): Single<VeyronResult<String>> {
+        return file(path, false)
                 .flatMap {
-                    drive.files().get(it.id)
-                            .asInputStream()
-                }
-                .map {
-                    Okyo.readInputStreamAsString(it)
+                    if (it.result == null) {
+                        return@flatMap Single.just(VeyronResult.EMPTY)
+                    } else {
+                        drive.files().get(it.result.id)
+                                .asInputStream()
+                                .map { inputStream ->
+                                    VeyronResult(Okyo.readInputStreamAsString(inputStream))
+                                }
+                    }
                 }
     }
 
@@ -163,12 +151,75 @@ class Veyron private constructor(builder: Builder) {
         }
     }
 
-    fun save(path: String, requests: List<SaveRequest>): Completable {
+    /**
+     * Save all of the files concurrently. Please be aware of rate limits and adjust [maxConcurrency] accordingly
+     */
+    fun save(path: String, requests: List<SaveRequest>, maxConcurrency: Int = 4): Completable {
+        //https://stackoverflow.com/a/48965035
         return Completable.defer {
-            requests.forEach {
+            Flowable.range(0, requests.size)
+                    .concatMapEager<Any>({ index ->
+                        save(path, requests[index])
+                                .subscribeOn(Schedulers.io())
+                                .toFlowable()
+                    }, maxConcurrency, 1)
+                    .toList()
+                    .flatMapCompletable { Completable.complete() }
+        }
+    }
 
-            }
+    /**
+     * Deletes the file or folder at the given path.
+     */
+    fun delete(path: String): Completable {
+        return Completable.defer {
+            val fileId = file(path)
+                    .blockingGet()
+                    .id
+            drive.files().delete(fileId)
+                    .execute()
             Completable.complete()
+
+        }
+    }
+
+    private fun file(path: String, alwaysCreate: Boolean): Single<VeyronResult<File>> {
+        return Single.defer {
+            val segments = segments(path)
+            val startFolder = startFolder()
+            var runnerFolder: File = startFolder
+
+            log { "Attempting to access file at $path" }
+            segments.forEachIndexed { index, path ->
+                val result = drive.files()
+                        .list()
+                        .setSpaces(space)
+                        .setQ("'${runnerFolder.id}' in parents and name = '$path'")
+                        .setFields(filesFields)
+                        .setPageSize(1000)
+                        .execute()
+                if (result != null && result.files.count() > 0) {
+                    log { "File at path $path found" }
+                    runnerFolder = result.files.first()
+                } else {
+                    val file = if (index == segments.lastIndex) {
+                        if (alwaysCreate) {
+                            log { "File at path $path not found, creating file" }
+                            fileMetadata(path, runnerFolder.id)
+                        } else {
+                            log { "File at path $path not found, returning empty" }
+                            return@defer Single.just(VeyronResult.EMPTY)
+                        }
+                    } else {
+                        log { "File at path $path not found, creating folder" }
+                        folderMetadata(path, runnerFolder.id)
+                    }
+                    runnerFolder = drive.files().create(file)
+                            .execute()
+                }
+            }
+            log { "Returning result for file ${runnerFolder.identify()} at $path" }
+            Single.just(VeyronResult(runnerFolder))
         }
     }
 
@@ -199,21 +250,6 @@ class Veyron private constructor(builder: Builder) {
 
             log { "File $savePath saved to file ${savedFile.identify()}" }
             Completable.complete()
-        }
-    }
-
-    /**
-     * Deletes the file or folder at the given path.
-     */
-    fun delete(path: String): Completable {
-        return Completable.defer {
-            val fileId = file(path)
-                    .blockingGet()
-                    .id
-            drive.files().delete(fileId)
-                    .execute()
-            Completable.complete()
-
         }
     }
 
