@@ -69,6 +69,11 @@ You will need to set up a Google Cloud project with the same package name as the
 KEYSTORE_PASSWORD=keystorepasswordhere
 ```
 
+## Note
+A few things to note about this library:
+- It has dependencies. Please check them and understand what they do.
+- Each query is limited to 1,000 results. This is something that will hopefully change one day, but it is the limit for now.
+
 License
 --------
 
