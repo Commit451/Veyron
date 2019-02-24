@@ -12,6 +12,8 @@ android {
 
     compileSdkVersion 28
     defaultConfig {
+        // Using same package name as this sample so that we can just use its project in the Google
+        // API console
         applicationId "com.commit451.driveappfolderviewer.sample"
         minSdkVersion 21
         targetSdkVersion 28
@@ -23,17 +25,6 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
-    }
-
-    packagingOptions {
-        exclude 'META-INF/DEPENDENCIES'
-        exclude 'META-INF/LICENSE'
-        exclude 'META-INF/LICENSE.txt'
-        exclude 'META-INF/license.txt'
-        exclude 'META-INF/NOTICE'
-        exclude 'META-INF/NOTICE.txt'
-        exclude 'META-INF/notice.txt'
-        exclude 'META-INF/ASL2.0'
     }
 
     signingConfigs {
@@ -48,12 +39,12 @@ android {
     buildTypes {
         debug {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'consumer-shrinker-rules.pro'
             signingConfig signingConfigs.release
         }
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'consumer-shrinker-rules.pro'
             signingConfig signingConfigs.release
         }
     }
@@ -66,7 +57,7 @@ dependencies {
 
     implementation 'com.google.android.material:material:1.0.0'
 
-    implementation 'io.reactivex.rxjava2:rxandroid:2.1.0'
+    implementation 'io.reactivex.rxjava2:rxandroid:2.1.1'
 
     implementation 'com.squareup.moshi:moshi-adapters:1.8.0'
 

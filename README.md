@@ -78,6 +78,9 @@ A few things to note about this library:
 - It has dependencies. Please check them and understand what they do.
 - Each query is limited to 1,000 results, but we fetch all results. We do not currently support pagination or "infinite loading"
 
+# R8/Proguard
+If you are using R8/Proguard, you will need to include the rules for [Moshi](https://github.com/square/moshi#r8--proguard) and [okio](https://github.com/square/okio#r8--proguard). Rules for the [Google HTTP Client Library](https://developers.google.com/api-client-library/java/google-http-java-client/setup#proguard) are included as rules for this library.
+
 License
 --------
 
