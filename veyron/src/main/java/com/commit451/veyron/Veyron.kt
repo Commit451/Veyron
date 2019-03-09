@@ -15,7 +15,6 @@ import java.util.*
 import io.reactivex.schedulers.Schedulers
 import io.reactivex.Flowable
 
-
 /**
  * Save and fetch files in JSON or raw format from Google Drive in a REST-like way.
  * Derived partially from [this sample](https://github.com/gsuitedevs/android-samples/blob/master/drive/deprecation/app/src/main/java/com/google/android/gms/drive/sample/driveapimigration/DriveServiceHelper.java)
@@ -34,6 +33,8 @@ class Veyron private constructor(builder: Builder) {
     private val space = SPACE_APP_DATA
     private val fields = "id,name,modifiedTime,size,mimeType"
     private val filesFields = "nextPageToken, files($fields)"
+
+    private val foldersCache = if (builder.cacheFolders) FoldersCache() else NoOpFoldersCache()
 
     /**
      * Get the file at the path. Creates intermediate folders and the actual file if they do not exist
@@ -64,7 +65,7 @@ class Veyron private constructor(builder: Builder) {
             finalQuery += if (query.isBlank()) "" else " and $query"
             //empty first, since that will not break the loop
             var nextPageToken: String? = ""
-            val results= mutableListOf<File>()
+            val results = mutableListOf<File>()
             while (nextPageToken != null) {
                 val result = drive.files()
                         .list()
@@ -184,9 +185,17 @@ class Veyron private constructor(builder: Builder) {
                     .id
             drive.files().delete(fileId)
                     .execute()
+            foldersCache.remove(path)
             Completable.complete()
-
         }
+    }
+
+    /**
+     * Typically you won't need to worry about this, but if you have an application where the user
+     * can change, you will want to clear the folder cache when switching users.
+     */
+    fun clearCache() {
+        foldersCache.clear()
     }
 
     private fun file(path: String, alwaysCreate: Boolean): Single<VeyronResult<File>> {
@@ -197,6 +206,12 @@ class Veyron private constructor(builder: Builder) {
 
             log { "Attempting to access file at $path" }
             segments.forEachIndexed { index, path ->
+                val cached = foldersCache.get(path)
+                if (cached != null) {
+                    log { "Cache hit on $path" }
+                    runnerFolder = cached
+                    return@forEachIndexed
+                }
                 val result = drive.files()
                         .list()
                         .setSpaces(space)
@@ -222,6 +237,10 @@ class Veyron private constructor(builder: Builder) {
                     }
                     runnerFolder = drive.files().create(file)
                             .execute()
+                }
+                if (runnerFolder.isFolder()) {
+                    log { "Caching folder at path $path" }
+                    foldersCache.put(path, runnerFolder)
                 }
             }
             log { "Returning result for file ${runnerFolder.identify()} at $path" }
@@ -260,8 +279,10 @@ class Veyron private constructor(builder: Builder) {
     }
 
     private fun startFolder(): File {
-        return drive.files().get(SPACE_APP_DATA)
+        val path = SPACE_APP_DATA
+        return foldersCache.get(path) ?: drive.files().get(path)
                 .toSingle()
+                .doOnSuccess { foldersCache.put(path, it) }
                 .blockingGet()
     }
 
@@ -322,6 +343,7 @@ class Veyron private constructor(builder: Builder) {
 
         internal var moshi: Moshi? = null
         internal var verbose = false
+        internal var cacheFolders = true
 
         /**
          * Use a custom Mosh instance to serialize and deserialize. Needed if you are going to save
@@ -337,6 +359,16 @@ class Veyron private constructor(builder: Builder) {
          */
         fun verbose(verbose: Boolean): Builder {
             this.verbose = verbose
+            return this
+        }
+
+        /**
+         * Set if you would like to have folders be cached. Enabled by default, which may lead
+         * to unusual behavior if it is common for the user to modify/delete files outside of
+         * your current app.
+         */
+        fun cacheFolders(enabled: Boolean): Builder {
+            this.cacheFolders = enabled
             return this
         }
 

@@ -41,11 +41,17 @@ class MainActivity : DriveAppViewerBaseActivity() {
 
         toolbar.title = "Veyron"
         toolbar.inflateMenu(R.menu.debug)
+        toolbar.inflateMenu(R.menu.clear_cache)
         toolbar.setOnMenuItemClickListener {
             when (it.itemId) {
                 R.id.action_debug -> {
                     val intent = DriveAppFolderViewer.intent(this)
                     startActivity(intent)
+                    return@setOnMenuItemClickListener true
+                }
+                R.id.action_clear_cache -> {
+                    veyron.clearCache()
+                    snackbar("Cache cleared")
                     return@setOnMenuItemClickListener true
                 }
             }
