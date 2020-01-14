@@ -1,8 +1,8 @@
-apply plugin: 'com.android.application'
+apply plugin: "com.android.application"
 
-apply plugin: 'kotlin-android'
+apply plugin: "kotlin-android"
 
-apply plugin: 'kotlin-android-extensions'
+apply plugin: "kotlin-android-extensions"
 
 android {
 
@@ -10,13 +10,14 @@ android {
         KEYSTORE_PASSWORD = project.hasProperty("KEYSTORE_PASSWORD") ? project.KEYSTORE_PASSWORD : " "
     }
 
-    compileSdkVersion 28
+    compileSdkVersion 29
+
     defaultConfig {
         // Using same package name as this sample so that we can just use its project in the Google
         // API console
         applicationId "com.commit451.driveappfolderviewer.sample"
         minSdkVersion 21
-        targetSdkVersion 28
+        targetSdkVersion 29
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -39,31 +40,38 @@ android {
     buildTypes {
         debug {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'consumer-shrinker-rules.pro'
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "consumer-shrinker-rules.pro"
             signingConfig signingConfigs.release
         }
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'consumer-shrinker-rules.pro'
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "consumer-shrinker-rules.pro"
             signingConfig signingConfigs.release
         }
     }
 }
 
+ext {
+    moshiVersion = "1.9.2"
+}
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
-    implementation 'androidx.appcompat:appcompat:1.0.2'
+    implementation "androidx.appcompat:appcompat:1.1.0"
 
-    implementation 'com.google.android.material:material:1.0.0'
+    implementation "com.google.android.gms:play-services-base:17.1.0"
+    implementation "com.google.android.gms:play-services-auth:17.0.0"
 
-    implementation 'io.reactivex.rxjava2:rxandroid:2.1.1'
+    implementation "com.google.android.material:material:1.0.0"
 
-    implementation 'com.squareup.moshi:moshi-adapters:1.8.0'
+    implementation "io.reactivex.rxjava2:rxandroid:2.1.1"
 
-    implementation 'com.github.Commit451.AdapterLayout:adapterlayout:1.2.0'
-    implementation 'com.github.Commit451:Aloy:1.2.0'
-    implementation 'com.github.Commit451:DriveAppFolderViewer:3.0.0'
+    implementation("com.squareup.moshi:moshi-kotlin:$moshiVersion")
+    implementation("com.squareup.moshi:moshi-adapters:$moshiVersion")
 
-    implementation project(':veyron')
+    implementation "com.github.Commit451.AdapterLayout:adapterlayout:1.2.0"
+    implementation "com.github.Commit451:Aloy:1.2.0"
+    implementation "com.github.Commit451:DriveAppFolderViewer:3.0.0"
+
+    implementation project(":veyron")
 }

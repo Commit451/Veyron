@@ -19,6 +19,7 @@ import io.reactivex.Flowable
  * Save and fetch files in JSON or raw format from Google Drive in a REST-like way.
  * Derived partially from [this sample](https://github.com/gsuitedevs/android-samples/blob/master/drive/deprecation/app/src/main/java/com/google/android/gms/drive/sample/driveapimigration/DriveServiceHelper.java)
  */
+@Suppress("MemberVisibilityCanBePrivate")
 class Veyron private constructor(builder: Builder) {
 
     companion object {
@@ -33,8 +34,8 @@ class Veyron private constructor(builder: Builder) {
     private val space = SPACE_APP_DATA
     private val fields = "id,name,modifiedTime,size,mimeType"
     private val filesFields = "nextPageToken, files($fields)"
-
     private val foldersCache = if (builder.cacheFolders) FoldersCache() else NoOpFoldersCache()
+    private val lock = Any()
 
     /**
      * Get the file at the path. Creates intermediate folders and the actual file if they do not exist
@@ -56,18 +57,19 @@ class Veyron private constructor(builder: Builder) {
      */
     fun search(path: String, query: String): Single<List<File>> {
         return Single.defer {
-            log { "Searching with query $query" }
-            val folderResult = file(path, false)
+            synchronized(lock) {
+                log { "Searching with query $query" }
+                val folderResult = file(path, false)
                     .blockingGet()
-            // If folder doesn't exist, return early.
-            val folder = folderResult.result ?: return@defer Single.just(listOf<File>())
-            var finalQuery = "'${folder.id}' in parents"
-            finalQuery += if (query.isBlank()) "" else " and $query"
-            //empty first, since that will not break the loop
-            var nextPageToken: String? = ""
-            val results = mutableListOf<File>()
-            while (nextPageToken != null) {
-                val result = drive.files()
+                // If folder doesn't exist, return early.
+                val folder = folderResult.result ?: return@defer Single.just(listOf<File>())
+                var finalQuery = "'${folder.id}' in parents"
+                finalQuery += if (query.isBlank()) "" else " and $query"
+                //empty first, since that will not break the loop
+                var nextPageToken: String? = ""
+                val results = mutableListOf<File>()
+                while (nextPageToken != null) {
+                    val result = drive.files()
                         .list()
                         .apply {
                             spaces = space
@@ -79,14 +81,15 @@ class Veyron private constructor(builder: Builder) {
                             }
                         }
                         .execute()
-                log { "Adding ${result.files.size} files" }
-                results.addAll(result.files)
-                nextPageToken = result.nextPageToken
-                if (nextPageToken != null) {
-                    log { "Loading next page with token $nextPageToken" }
+                    log { "Adding ${result.files.size} files" }
+                    results.addAll(result.files)
+                    nextPageToken = result.nextPageToken
+                    if (nextPageToken != null) {
+                        log { "Loading next page with token $nextPageToken" }
+                    }
                 }
+                return@defer Single.just(results)
             }
-            Single.just(results)
         }
     }
 
@@ -162,7 +165,7 @@ class Veyron private constructor(builder: Builder) {
      * Save all of the files concurrently. Please be aware of rate limits and adjust [maxConcurrency] accordingly
      */
     fun save(path: String, requests: List<SaveRequest>, maxConcurrency: Int = 4): Completable {
-        //https://stackoverflow.com/a/48965035
+        // https://stackoverflow.com/a/48965035
         return Completable.defer {
             Flowable.range(0, requests.size)
                     .concatMapEager<Any>({ index ->
@@ -200,51 +203,53 @@ class Veyron private constructor(builder: Builder) {
 
     private fun file(path: String, alwaysCreate: Boolean): Single<VeyronResult<File>> {
         return Single.defer {
-            val segments = segments(path)
-            val startFolder = startFolder()
-            var runnerFolder: File = startFolder
+            synchronized(lock) {
+                val segments = segments(path)
+                val startFolder = startFolder()
+                var runnerFolder: File = startFolder
 
-            log { "Attempting to access file at $path" }
-            segments.forEachIndexed { index, path ->
-                val cached = foldersCache.get(path)
-                if (cached != null) {
-                    log { "Cache hit on $path" }
-                    runnerFolder = cached
-                    return@forEachIndexed
-                }
-                val result = drive.files()
+                log { "Attempting to access file at $path" }
+                segments.forEachIndexed { index, path ->
+                    val cached = foldersCache.get(path)
+                    if (cached != null) {
+                        log { "Cache hit on $path" }
+                        runnerFolder = cached
+                        return@forEachIndexed
+                    }
+                    val result = drive.files()
                         .list()
                         .setSpaces(space)
                         .setQ("'${runnerFolder.id}' in parents and name = '$path'")
                         .setFields(filesFields)
                         .setPageSize(1)
                         .execute()
-                if (result != null && result.files.count() > 0) {
-                    log { "File at path $path found" }
-                    runnerFolder = result.files.first()
-                } else {
-                    val file = if (index == segments.lastIndex) {
-                        if (alwaysCreate) {
-                            log { "File at path $path not found, creating file" }
-                            fileMetadata(path, runnerFolder.id)
-                        } else {
-                            log { "File at path $path not found, returning empty" }
-                            return@defer Single.just(VeyronResult.EMPTY)
-                        }
+                    if (result != null && result.files.count() > 0) {
+                        log { "File at path $path found" }
+                        runnerFolder = result.files.first()
                     } else {
-                        log { "File at path $path not found, creating folder" }
-                        folderMetadata(path, runnerFolder.id)
-                    }
-                    runnerFolder = drive.files().create(file)
+                        val file = if (index == segments.lastIndex) {
+                            if (alwaysCreate) {
+                                log { "File at path $path not found, creating file" }
+                                fileMetadata(path, runnerFolder.id)
+                            } else {
+                                log { "File at path $path not found, returning empty" }
+                                return@defer Single.just(VeyronResult.EMPTY)
+                            }
+                        } else {
+                            log { "File at path $path not found, creating folder" }
+                            folderMetadata(path, runnerFolder.id)
+                        }
+                        runnerFolder = drive.files().create(file)
                             .execute()
+                    }
+                    if (runnerFolder.isFolder()) {
+                        log { "Caching folder at path $path" }
+                        foldersCache.put(path, runnerFolder)
+                    }
                 }
-                if (runnerFolder.isFolder()) {
-                    log { "Caching folder at path $path" }
-                    foldersCache.put(path, runnerFolder)
-                }
+                log { "Returning result for file ${runnerFolder.identify()} at $path" }
+                return@defer Single.just(VeyronResult(runnerFolder))
             }
-            log { "Returning result for file ${runnerFolder.identify()} at $path" }
-            Single.just(VeyronResult(runnerFolder))
         }
     }
 

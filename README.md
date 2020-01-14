@@ -2,15 +2,29 @@
 
 [![Build Status](https://travis-ci.org/Commit451/Veyron.svg?branch=master)](https://travis-ci.org/Commit451/Veyron) [![](https://jitpack.io/v/Commit451/Veyron.svg)](https://jitpack.io/#Commit451/Veyron)
 
-Easily store and fetch JSON in Google Drive.
+Easily store and fetch JSON, Files, and Strings in Google Drive on Android.
+
+## Dependency
+```
+implementation("com.github.Commit451:Veyron:latest.version.here")
+```
+You also need to make sure you are compiling with Java 8:
+```
+android {
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+```
 
 ## Usage
-First, follow the [Android Google Drive SDK quick start sample](https://github.com/gsuitedevs/android-samples/tree/master/drive/quickstart) to get the project set up. Then, you will be able to use Veyron:
+You will first need to do the setup for the [Google Drive API](https://developers.google.com/drive). See the sample project for a complete example.
 ```kotlin
-//when you have a valid DriveResourceClient
-val veyron = Veyron.Builder(driveResourceClient)
-    //optional configuration for Moshi
-    //.moshi(moshi)
+// when you have a valid Drive class:
+val veyron = Veyron.Builder(drive)
+    // optional configuration for Moshi, if you are saving classes instead of Strings/Files
+    // .moshi(moshi)
     .build()
 ```
 
@@ -20,7 +34,7 @@ val dog = Dog()
 val saveRequest = SaveRequest.Document("dog.json", Dog::class.java, thing)
 
 val path = "info"
-//RxJava Completable is returned
+// RxJava Completable is returned
 veyron.save(path, saveRequest)
         .subscribeOn(Schedulers.io())
         .observeOn(AndroidSchedulers.mainThread())
@@ -84,7 +98,7 @@ If you are using R8/Proguard, you will need to include the rules for [Moshi](htt
 License
 --------
 
-    Copyright 2019 Commit 451
+    Copyright 2020 Commit 451
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
