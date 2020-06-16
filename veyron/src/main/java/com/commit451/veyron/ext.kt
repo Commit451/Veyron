@@ -3,8 +3,8 @@ package com.commit451.veyron
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveRequest
 import com.google.api.services.drive.model.File
-import io.reactivex.Completable
-import io.reactivex.Single
+import io.reactivex.rxjava3.core.Completable
+import io.reactivex.rxjava3.core.Single
 import java.io.InputStream
 
 fun <T> DriveRequest<T>.toSingle(): Single<T> {

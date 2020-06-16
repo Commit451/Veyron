@@ -46,9 +46,9 @@ dependencies {
         exclude group: "org.apache.httpcomponents"
     }
 
-    api "io.reactivex.rxjava2:rxjava:2.2.17"
+    api "io.reactivex.rxjava3:rxjava:3.0.4"
 
-    api "com.squareup.moshi:moshi:1.9.2"
+    api "com.squareup.moshi:moshi:1.9.3"
 
     api "com.github.Commit451:okyo:3.0.2"
 

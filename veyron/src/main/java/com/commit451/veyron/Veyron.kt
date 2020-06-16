@@ -9,11 +9,11 @@ import com.google.api.client.http.ByteArrayContent
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.model.File
 import com.squareup.moshi.Moshi
-import io.reactivex.Completable
-import io.reactivex.Single
+import io.reactivex.rxjava3.core.Completable
+import io.reactivex.rxjava3.core.Flowable
+import io.reactivex.rxjava3.core.Single
+import io.reactivex.rxjava3.schedulers.Schedulers
 import java.util.*
-import io.reactivex.schedulers.Schedulers
-import io.reactivex.Flowable
 
 /**
  * Save and fetch files in JSON or raw format from Google Drive in a REST-like way.
