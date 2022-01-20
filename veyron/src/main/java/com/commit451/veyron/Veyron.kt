@@ -30,6 +30,7 @@ class Veyron private constructor(builder: Builder) {
     private var moshi: Moshi = builder.moshi ?: Moshi.Builder().build()
     private val verbose = builder.verbose
     private val drive: Drive = builder.drive
+
     // We just support one space for now
     private val space = SPACE_APP_DATA
     private val fields = "id,name,modifiedTime,size,mimeType"
@@ -42,10 +43,10 @@ class Veyron private constructor(builder: Builder) {
      */
     fun file(path: String): Single<File> {
         return file(path, true)
-                .map {
-                    //Never null, there will always be a result
-                    it.result!!
-                }
+            .map {
+                //Never null, there will always be a result
+                it.result!!
+            }
     }
 
     /**
@@ -108,15 +109,15 @@ class Veyron private constructor(builder: Builder) {
      */
     fun <T> document(path: String, type: Class<T>): Single<VeyronResult<T>> {
         return file(path, false)
-                .flatMap {
-                    if (it.result != null) {
-                        log { "Attempting to turn ${it.result.identify()} into a document" }
-                        val document = fileToDocument(it.result, type)
-                        Single.just(VeyronResult(document))
-                    } else {
-                        Single.just(VeyronResult.EMPTY)
-                    }
+            .flatMap {
+                if (it.result != null) {
+                    log { "Attempting to turn ${it.result.identify()} into a document" }
+                    val document = fileToDocument(it.result, type)
+                    Single.just(VeyronResult(document))
+                } else {
+                    Single.just(VeyronResult.EMPTY)
                 }
+            }
     }
 
     /**
@@ -124,9 +125,9 @@ class Veyron private constructor(builder: Builder) {
      */
     fun <T> documents(path: String, type: Class<T>, query: String = ""): Single<List<T>> {
         return search(path, query)
-                .map {
-                    it.map { file -> fileToDocument(file, type)!! }
-                }
+            .map {
+                it.map { file -> fileToDocument(file, type)!! }
+            }
     }
 
     /**
@@ -134,17 +135,17 @@ class Veyron private constructor(builder: Builder) {
      */
     fun string(path: String): Single<VeyronResult<String>> {
         return file(path, false)
-                .flatMap {
-                    if (it.result == null) {
-                        return@flatMap Single.just(VeyronResult.EMPTY)
-                    } else {
-                        drive.files().get(it.result.id)
-                                .asInputStream()
-                                .map { inputStream ->
-                                    VeyronResult(Okyo.readInputStreamAsString(inputStream))
-                                }
-                    }
+            .flatMap {
+                if (it.result == null) {
+                    return@flatMap Single.just(VeyronResult.EMPTY)
+                } else {
+                    drive.files().get(it.result.id)
+                        .asInputStream()
+                        .map { inputStream ->
+                            VeyronResult(Okyo.readInputStreamAsString(inputStream))
+                        }
                 }
+            }
     }
 
     /**
@@ -154,8 +155,18 @@ class Veyron private constructor(builder: Builder) {
     fun save(path: String, request: SaveRequest): Completable {
         return Completable.defer {
             when (request) {
-                is SaveRequest.ByteArrayContent -> save(path, request.title, request.content)
-                is SaveRequest.String -> save(path, request.title, request.content)
+                is SaveRequest.ByteArrayContent -> save(
+                    path,
+                    request.title,
+                    request.content,
+                    request.mediaContent
+                )
+                is SaveRequest.String -> save(
+                    path,
+                    request.title,
+                    request.content,
+                    request.mediaContent
+                )
                 is SaveRequest.Document<*> -> save(path, request)
             }
         }
@@ -168,13 +179,13 @@ class Veyron private constructor(builder: Builder) {
         // https://stackoverflow.com/a/48965035
         return Completable.defer {
             Flowable.range(0, requests.size)
-                    .concatMapEager<Any>({ index ->
-                        save(path, requests[index])
-                                .subscribeOn(Schedulers.io())
-                                .toFlowable()
-                    }, maxConcurrency, 1)
-                    .toList()
-                    .flatMapCompletable { Completable.complete() }
+                .concatMapEager<Any>({ index ->
+                    save(path, requests[index])
+                        .subscribeOn(Schedulers.io())
+                        .toFlowable()
+                }, maxConcurrency, 1)
+                .toList()
+                .flatMapCompletable { Completable.complete() }
         }
     }
 
@@ -184,10 +195,10 @@ class Veyron private constructor(builder: Builder) {
     fun delete(path: String): Completable {
         return Completable.defer {
             val fileId = file(path)
-                    .blockingGet()
-                    .id
+                .blockingGet()
+                .id
             drive.files().delete(fileId)
-                    .execute()
+                .execute()
             foldersCache.remove(path)
             Completable.complete()
         }
@@ -255,28 +266,38 @@ class Veyron private constructor(builder: Builder) {
 
     private fun <T> save(path: String, request: SaveRequest.Document<T>): Completable {
         return Completable.defer {
-            val json = moshi.adapter<T>(request.type)
-                    .toJson(request.item)
-            save(path, request.title, json)
+            val json = moshi.adapter(request.type)
+                .toJson(request.item)
+            save(path, request.title, request.content, json)
         }
     }
 
-    private fun save(path: String, title: String, content: String): Completable {
+    private fun save(
+        path: String,
+        title: String,
+        content: File? = null,
+        mediaContent: String
+    ): Completable {
         return Completable.defer {
-            val contentStream = ByteArrayContent.fromString(MIME_TYPE_JSON, content)
-            save(path, title, contentStream)
+            val mediaContentStream = ByteArrayContent.fromString(MIME_TYPE_JSON, mediaContent)
+            save(path, title, content, mediaContentStream)
         }
     }
 
-    private fun save(path: String, title: String, content: ByteArrayContent): Completable {
+    private fun save(
+        path: String,
+        title: String,
+        content: File?,
+        mediaContent: ByteArrayContent
+    ): Completable {
         return Completable.defer {
             val savePath = "$path/$title"
             log { "Saving to $savePath" }
             val file = file(savePath)
-                    .blockingGet()
+                .blockingGet()
 
-            val savedFile = drive.files().update(file.id, null, content)
-                    .execute()
+            val savedFile = drive.files().update(file.id, content, mediaContent)
+                .execute()
 
             log { "File $savePath saved to file ${savedFile.identify()}" }
             Completable.complete()
@@ -286,23 +307,23 @@ class Veyron private constructor(builder: Builder) {
     private fun startFolder(): File {
         val path = SPACE_APP_DATA
         return foldersCache.get(path) ?: drive.files().get(path)
-                .toSingle()
-                .doOnSuccess { foldersCache.put(path, it) }
-                .blockingGet()
+            .toSingle()
+            .doOnSuccess { foldersCache.put(path, it) }
+            .blockingGet()
     }
 
     private fun folderMetadata(folderName: String, parentId: String): File {
         return File()
-                .setParents(Collections.singletonList(parentId))
-                .setMimeType(MIME_TYPE_FOLDER)
-                .setName(folderName)
+            .setParents(Collections.singletonList(parentId))
+            .setMimeType(MIME_TYPE_FOLDER)
+            .setName(folderName)
     }
 
     private fun fileMetadata(folderName: String, parentId: String): File {
         return File()
-                .setParents(Collections.singletonList(parentId))
-                .setMimeType(MIME_TYPE_JSON)
-                .setName(folderName)
+            .setParents(Collections.singletonList(parentId))
+            .setMimeType(MIME_TYPE_JSON)
+            .setName(folderName)
     }
 
     private fun <T> fileToDocument(file: File?, type: Class<T>): T? {
@@ -312,7 +333,7 @@ class Veyron private constructor(builder: Builder) {
         }
         return try {
             val getRequest = drive.files()
-                    .get(file.id)
+                .get(file.id)
             val inputStream = getRequest.executeMediaAsInputStream()
             val content = Okyo.readInputStreamAsString(inputStream)
             if (content.isEmpty()) {

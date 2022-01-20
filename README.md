@@ -1,7 +1,4 @@
 # Veyron
-
-[![Build Status](https://travis-ci.org/Commit451/Veyron.svg?branch=master)](https://travis-ci.org/Commit451/Veyron) [![](https://jitpack.io/v/Commit451/Veyron.svg)](https://jitpack.io/#Commit451/Veyron)
-
 Easily store and fetch JSON, Files, and Strings in Google Drive on Android.
 
 ## Dependency
@@ -98,7 +95,7 @@ If you are using R8/Proguard, you will need to include the rules for [Moshi](htt
 License
 --------
 
-    Copyright 2020 Commit 451
+    Copyright 2022 Commit 451
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.

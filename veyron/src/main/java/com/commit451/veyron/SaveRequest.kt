@@ -1,5 +1,7 @@
 package com.commit451.veyron
 
+import com.google.api.services.drive.model.File
+
 /**
  * Create a request to save data to Google Drive
  */
@@ -7,15 +9,28 @@ sealed class SaveRequest {
     /**
      * Create a request to save data to Google Drive with [ByteArrayContent]
      */
-    class ByteArrayContent(val title: kotlin.String, val content: com.google.api.client.http.ByteArrayContent) : SaveRequest()
+    data class ByteArrayContent(
+        val title: kotlin.String,
+        val mediaContent: com.google.api.client.http.ByteArrayContent,
+        val content: File? = null,
+    ) : SaveRequest()
 
     /**
      * Create a request to save data to Google Drive with [String]
      */
-    class String(val title: kotlin.String, val content: kotlin.String) : SaveRequest()
+    data class String(
+        val title: kotlin.String,
+        val mediaContent: kotlin.String,
+        val content: File? = null,
+    ) : SaveRequest()
 
     /**
      * Create a request to save data to Google Drive with [T]
      */
-    class Document<T>(val title: kotlin.String, val type: Class<T>, val item: T) : SaveRequest()
+    data class Document<T>(
+        val title: kotlin.String,
+        val type: Class<T>,
+        val item: T,
+        val content: File? = null,
+    ) : SaveRequest()
 }

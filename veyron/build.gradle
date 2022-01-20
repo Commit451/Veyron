@@ -2,12 +2,14 @@ apply plugin: "com.android.library"
 
 apply plugin: "kotlin-android"
 
+apply plugin: "com.vanniktech.maven.publish"
+
 android {
-    compileSdkVersion 29
+    compileSdkVersion 31
 
     defaultConfig {
         minSdkVersion 16
-        targetSdkVersion 29
+        targetSdkVersion 31
         versionCode 1
         versionName "1.0"
 
@@ -34,8 +36,6 @@ android {
 }
 
 dependencies {
-    api "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-
     // Beware of updating the next 3 deps. Can cause weird
     // build issues due to the Apache HTTP client
     api "com.google.http-client:google-http-client-gson:1.28.0"
@@ -46,13 +46,11 @@ dependencies {
         exclude group: "org.apache.httpcomponents"
     }
 
-    api "io.reactivex.rxjava3:rxjava:3.0.4"
+    api "io.reactivex.rxjava3:rxjava:3.1.3"
 
-    api "com.squareup.moshi:moshi:1.9.3"
+    api "com.squareup.moshi:moshi:1.13.0"
 
     api "com.github.Commit451:okyo:3.0.2"
 
-    testImplementation "junit:junit:4.13"
+    testImplementation "junit:junit:4.13.2"
 }
-
-apply from: "https://raw.githubusercontent.com/Commit451/gradle-android-javadocs/1.1.0/gradle-android-javadocs.gradle"

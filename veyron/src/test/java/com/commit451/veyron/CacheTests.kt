@@ -12,9 +12,9 @@ class CacheTests {
     fun `cache hit`() {
         val path = "journals/p"
         val file = File()
-                .setMimeType(MIME_TYPE_FOLDER)
-                .setName("p")
-        cache.put(path,file)
+            .setMimeType(MIME_TYPE_FOLDER)
+            .setName("p")
+        cache.put(path, file)
 
         val cachedFile = cache.get(path)
         assertNotNull(cachedFile)

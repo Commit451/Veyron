@@ -6,7 +6,7 @@ import com.google.api.services.drive.model.File
  * Cache of folders
  */
 @Suppress("PARAMETER_NAME_CHANGED_ON_OVERRIDE")
-internal class FoldersCache: Cache<File> {
+internal class FoldersCache : Cache<File> {
 
     private val cache = mutableMapOf<String, File>()
 

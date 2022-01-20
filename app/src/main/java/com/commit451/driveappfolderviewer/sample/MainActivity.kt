@@ -6,6 +6,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.commit451.aloy.AloyAdapter
 import com.commit451.driveappfolderviewer.DriveAppFolderViewer
 import com.commit451.driveappfolderviewer.DriveAppViewerBaseActivity
+import com.commit451.driveappfolderviewer.sample.databinding.ActivityMainBinding
 import com.commit451.veyron.SaveRequest
 import com.commit451.veyron.Veyron
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
@@ -16,7 +17,6 @@ import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import io.reactivex.rxjava3.schedulers.Schedulers
-import kotlinx.android.synthetic.main.activity_main.*
 import java.util.*
 
 class MainActivity : DriveAppViewerBaseActivity() {
@@ -26,6 +26,8 @@ class MainActivity : DriveAppViewerBaseActivity() {
         private const val PATH_FAVORITE_DOGS = "favorite-dogs"
         private const val FILE_DOGS = "dogs"
     }
+
+    private lateinit var binding: ActivityMainBinding
 
     private lateinit var veyron: Veyron
 
@@ -38,12 +40,13 @@ class MainActivity : DriveAppViewerBaseActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-        toolbar.title = "Veyron"
-        toolbar.inflateMenu(R.menu.debug)
-        toolbar.inflateMenu(R.menu.clear_cache)
-        toolbar.setOnMenuItemClickListener {
+        binding.toolbar.title = "Veyron"
+        binding.toolbar.inflateMenu(R.menu.debug)
+        binding.toolbar.inflateMenu(R.menu.clear_cache)
+        binding.toolbar.setOnMenuItemClickListener {
             when (it.itemId) {
                 R.id.action_debug -> {
                     val intent = DriveAppFolderViewer.intent(this)
@@ -59,7 +62,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
             false
         }
 
-        buttonNewDog.setOnClickListener {
+        binding.buttonNewDog.setOnClickListener {
 
             val dog = Dog()
             dog.name = UUID.randomUUID().toString()
@@ -84,7 +87,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
                     })
         }
 
-        buttonDeleteAll.setOnClickListener {
+        binding.buttonDeleteAll.setOnClickListener {
             //we also have to delete the local
             currentDogsResponse?.dogs?.clear()
             veyron.delete(PATH_DOGS)
@@ -98,7 +101,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
                     })
         }
 
-        buttonNewFavoriteDog.setOnClickListener {
+        binding.buttonNewFavoriteDog.setOnClickListener {
             val dog = Dog()
             dog.name = UUID.randomUUID().toString()
             dog.created = Date()
@@ -116,7 +119,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
                     })
         }
 
-        buttonManyFavoriteDog.setOnClickListener {
+        binding.buttonManyFavoriteDog.setOnClickListener {
             val dogSaveRequests = mutableListOf<SaveRequest.String>()
             for (i in 0..9) {
                 val dog = Dog()
@@ -138,7 +141,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
                     })
         }
 
-        buttonDeleteAllFavorite.setOnClickListener {
+        binding.buttonDeleteAllFavorite.setOnClickListener {
             adapterFavorites.clear()
             veyron.delete(PATH_FAVORITE_DOGS)
                     .subscribeOn(Schedulers.io())
@@ -163,13 +166,13 @@ class MainActivity : DriveAppViewerBaseActivity() {
             viewHolder.bind(item)
         })
 
-        listDogs.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        listDogs.adapter = adapter
+        binding.listDogs.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        binding.listDogs.adapter = adapter
 
-        listFavoriteDogs.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        listFavoriteDogs.adapter = adapterFavorites
+        binding.listFavoriteDogs.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        binding.listFavoriteDogs.adapter = adapterFavorites
 
-        swipeRefreshLayout.setOnRefreshListener { load() }
+        binding.swipeRefreshLayout.setOnRefreshListener { load() }
     }
 
     override fun onSignedIn(googleSignInAccount: GoogleSignInAccount) {
@@ -197,13 +200,13 @@ class MainActivity : DriveAppViewerBaseActivity() {
     }
 
     private fun loadDogs() {
-        swipeRefreshLayout.isRefreshing = true
+        binding.swipeRefreshLayout.isRefreshing = true
         disposables.add(
                 veyron.document("$PATH_DOGS/$FILE_DOGS", DogsResponse::class.java)
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe({
-                            swipeRefreshLayout.isRefreshing = false
+                            binding.swipeRefreshLayout.isRefreshing = false
                             if (it.result != null) {
                                 currentDogsResponse = it.result
                                 it.result?.dogs?.let { dogs ->
@@ -217,7 +220,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
     }
 
     private fun loadFavorites() {
-        swipeRefreshLayout.isRefreshing = true
+        binding.swipeRefreshLayout.isRefreshing = true
         disposables.add(
                 veyron.files(PATH_FAVORITE_DOGS)
                         .map {
@@ -231,7 +234,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe({
-                            swipeRefreshLayout.isRefreshing = false
+                            binding.swipeRefreshLayout.isRefreshing = false
                             adapterFavorites.set(it)
                         }, {
                             error(it)
@@ -240,7 +243,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
     }
 
     private fun snackbar(message: String) {
-        Snackbar.make(root, message, Snackbar.LENGTH_SHORT)
+        Snackbar.make(binding.root, message, Snackbar.LENGTH_SHORT)
                 .show()
     }
 
@@ -249,7 +252,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
     }
 
     private fun error(t: Throwable) {
-        swipeRefreshLayout.isRefreshing = false
+        binding.swipeRefreshLayout.isRefreshing = false
         t.printStackTrace()
         snackbar("Something bad happened. Check the logs")
     }
