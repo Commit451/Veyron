@@ -1,4 +1,4 @@
 jdk:
   - openjdk11
 install:
-   - ./gradlew clean veyron:install -x:veyron:installDebugAndroidTest
+   - ./gradlew clean veyron:assemble veyron:publishToMavenLocal
