@@ -77,28 +77,28 @@ class MainActivity : DriveAppViewerBaseActivity() {
             val saveRequest = SaveRequest.Document(FILE_DOGS, DogsResponse::class.java, response)
 
             veyron.save(PATH_DOGS, saveRequest)
-                    .subscribeOn(Schedulers.io())
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe({
-                        snackbar("Created dog")
-                        loadDogs()
-                    }, { throwable ->
-                        error(throwable)
-                    })
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe({
+                    snackbar("Created dog")
+                    loadDogs()
+                }, { throwable ->
+                    error(throwable)
+                })
         }
 
         binding.buttonDeleteAll.setOnClickListener {
             //we also have to delete the local
             currentDogsResponse?.dogs?.clear()
             veyron.delete(PATH_DOGS)
-                    .subscribeOn(Schedulers.io())
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe({
-                        snackbar("All dogs deleted")
-                        loadDogs()
-                    }, { throwable ->
-                        error(throwable)
-                    })
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe({
+                    snackbar("All dogs deleted")
+                    loadDogs()
+                }, { throwable ->
+                    error(throwable)
+                })
         }
 
         binding.buttonNewFavoriteDog.setOnClickListener {
@@ -109,14 +109,14 @@ class MainActivity : DriveAppViewerBaseActivity() {
             val saveRequest = SaveRequest.String(dog.name, "asdf")
 
             veyron.save(PATH_FAVORITE_DOGS, saveRequest)
-                    .subscribeOn(Schedulers.io())
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe({
-                        snackbar("Created favorite dog")
-                        loadFavorites()
-                    }, { throwable ->
-                        error(throwable)
-                    })
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe({
+                    snackbar("Created favorite dog")
+                    loadFavorites()
+                }, { throwable ->
+                    error(throwable)
+                })
         }
 
         binding.buttonManyFavoriteDog.setOnClickListener {
@@ -131,27 +131,27 @@ class MainActivity : DriveAppViewerBaseActivity() {
                 dogSaveRequests.add(saveRequest)
             }
             veyron.save(PATH_FAVORITE_DOGS, dogSaveRequests)
-                    .subscribeOn(Schedulers.io())
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe({
-                        snackbar("Created ${dogSaveRequests.size} favorite dogs")
-                        loadFavorites()
-                    }, { throwable ->
-                        error(throwable)
-                    })
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe({
+                    snackbar("Created ${dogSaveRequests.size} favorite dogs")
+                    loadFavorites()
+                }, { throwable ->
+                    error(throwable)
+                })
         }
 
         binding.buttonDeleteAllFavorite.setOnClickListener {
             adapterFavorites.clear()
             veyron.delete(PATH_FAVORITE_DOGS)
-                    .subscribeOn(Schedulers.io())
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe({
-                        snackbar("All favorite dogs deleted")
-                        load()
-                    }, { throwable ->
-                        error(throwable)
-                    })
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe({
+                    snackbar("All favorite dogs deleted")
+                    load()
+                }, { throwable ->
+                    error(throwable)
+                })
         }
 
         adapter = AloyAdapter({ parent, _ ->
@@ -166,10 +166,12 @@ class MainActivity : DriveAppViewerBaseActivity() {
             viewHolder.bind(item)
         })
 
-        binding.listDogs.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        binding.listDogs.layoutManager =
+            LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         binding.listDogs.adapter = adapter
 
-        binding.listFavoriteDogs.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        binding.listFavoriteDogs.layoutManager =
+            LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         binding.listFavoriteDogs.adapter = adapterFavorites
 
         binding.swipeRefreshLayout.setOnRefreshListener { load() }
@@ -178,14 +180,14 @@ class MainActivity : DriveAppViewerBaseActivity() {
     override fun onSignedIn(googleSignInAccount: GoogleSignInAccount) {
         super.onSignedIn(googleSignInAccount)
         val moshi = Moshi.Builder()
-                .add(KotlinJsonAdapterFactory())
-                .add(Date::class.java, Rfc3339DateJsonAdapter())
-                //etc
-                .build()
+            .add(KotlinJsonAdapterFactory())
+            .add(Date::class.java, Rfc3339DateJsonAdapter())
+            //etc
+            .build()
         veyron = Veyron.Builder(drive!!)
-                .moshi(moshi)
-                .verbose(true)
-                .build()
+            .moshi(moshi)
+            .verbose(true)
+            .build()
         load()
     }
 
@@ -202,49 +204,49 @@ class MainActivity : DriveAppViewerBaseActivity() {
     private fun loadDogs() {
         binding.swipeRefreshLayout.isRefreshing = true
         disposables.add(
-                veyron.document("$PATH_DOGS/$FILE_DOGS", DogsResponse::class.java)
-                        .subscribeOn(Schedulers.io())
-                        .observeOn(AndroidSchedulers.mainThread())
-                        .subscribe({
-                            binding.swipeRefreshLayout.isRefreshing = false
-                            if (it.result != null) {
-                                currentDogsResponse = it.result
-                                it.result?.dogs?.let { dogs ->
-                                    adapter.set(dogs)
-                                }
-                            }
-                        }, { throwable ->
-                            error(throwable)
-                        })
+            veyron.document("$PATH_DOGS/$FILE_DOGS", DogsResponse::class.java)
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe({
+                    binding.swipeRefreshLayout.isRefreshing = false
+                    if (it.result != null) {
+                        currentDogsResponse = it.result
+                        it.result?.dogs?.let { dogs ->
+                            adapter.set(dogs)
+                        }
+                    }
+                }, { throwable ->
+                    error(throwable)
+                })
         )
     }
 
     private fun loadFavorites() {
         binding.swipeRefreshLayout.isRefreshing = true
         disposables.add(
-                veyron.files(PATH_FAVORITE_DOGS)
-                        .map {
-                            it.map { file ->
-                                val dog = Dog()
-                                dog.name = file.name
-                                //dog.created = Date(file.createdTime.value)
-                                dog
-                            }
-                        }
-                        .subscribeOn(Schedulers.io())
-                        .observeOn(AndroidSchedulers.mainThread())
-                        .subscribe({
-                            binding.swipeRefreshLayout.isRefreshing = false
-                            adapterFavorites.set(it)
-                        }, {
-                            error(it)
-                        })
+            veyron.files(PATH_FAVORITE_DOGS)
+                .map {
+                    it.map { file ->
+                        val dog = Dog()
+                        dog.name = file.name
+                        //dog.created = Date(file.createdTime.value)
+                        dog
+                    }
+                }
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe({
+                    binding.swipeRefreshLayout.isRefreshing = false
+                    adapterFavorites.set(it)
+                }, {
+                    error(it)
+                })
         )
     }
 
     private fun snackbar(message: String) {
         Snackbar.make(binding.root, message, Snackbar.LENGTH_SHORT)
-                .show()
+            .show()
     }
 
     private fun log(message: String) {

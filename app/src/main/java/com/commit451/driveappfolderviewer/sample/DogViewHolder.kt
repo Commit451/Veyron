@@ -13,7 +13,7 @@ class DogViewHolder(view: View) : RecyclerView.ViewHolder(view) {
 
         fun inflate(parent: ViewGroup): DogViewHolder {
             val view = LayoutInflater.from(parent.context)
-                    .inflate(R.layout.item_dog, parent, false)
+                .inflate(R.layout.item_dog, parent, false)
             return DogViewHolder(view)
         }
     }
@@ -26,7 +26,9 @@ class DogViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         if (dog.created == null) {
             textCreated.text = "Unknown"
         } else {
-            textCreated.text = "${DateFormat.getLongDateFormat(text.context).format(dog.created)} at ${DateFormat.getTimeFormat(text.context).format(dog.created)}"
+            textCreated.text = "${
+                DateFormat.getLongDateFormat(text.context).format(dog.created)
+            } at ${DateFormat.getTimeFormat(text.context).format(dog.created)}"
         }
     }
 }
