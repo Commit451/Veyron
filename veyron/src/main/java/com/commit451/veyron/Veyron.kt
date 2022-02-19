@@ -168,6 +168,7 @@ class Veyron private constructor(builder: Builder) {
                     request.mediaContent
                 )
                 is SaveRequest.Document<*> -> save(path, request)
+                is SaveRequest.Metadata -> save(path, request)
             }
         }
     }
@@ -272,6 +273,12 @@ class Veyron private constructor(builder: Builder) {
         }
     }
 
+    private fun save(path: String, request: SaveRequest.Metadata): Completable {
+        return Completable.defer {
+            save(path, request.title, request.content, null)
+        }
+    }
+
     private fun save(
         path: String,
         title: String,
@@ -288,7 +295,7 @@ class Veyron private constructor(builder: Builder) {
         path: String,
         title: String,
         content: File?,
-        mediaContent: ByteArrayContent
+        mediaContent: ByteArrayContent?
     ): Completable {
         return Completable.defer {
             val savePath = "$path/$title"

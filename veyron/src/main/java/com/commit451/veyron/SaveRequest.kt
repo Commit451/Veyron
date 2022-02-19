@@ -33,4 +33,12 @@ sealed class SaveRequest {
         val item: T,
         val content: File? = null,
     ) : SaveRequest()
+
+    /**
+     * Create a request to save data to Google Drive with just metadata file content
+     */
+    data class Metadata(
+        val title: kotlin.String,
+        val content: File? = null,
+    ) : SaveRequest()
 }
