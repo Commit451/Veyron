@@ -303,8 +303,13 @@ class Veyron private constructor(builder: Builder) {
             val file = file(savePath)
                 .blockingGet()
 
-            val savedFile = drive.files().update(file.id, content, mediaContent)
-                .execute()
+            val savedFile = if (mediaContent == null) {
+                drive.files().update(file.id, content)
+                    .execute()
+            } else {
+                drive.files().update(file.id, content, mediaContent)
+                    .execute()
+            }
 
             log { "File $savePath saved to file ${savedFile.identify()}" }
             Completable.complete()
