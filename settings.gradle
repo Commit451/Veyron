@@ -1,1 +1,1 @@
-include ':app', ':veyron'
+include ':app', ':veyron', ":rxjava"

@@ -5,7 +5,9 @@ Easily store and fetch JSON, Files, and Strings in Google Drive on Android.
 
 ## Dependency
 ```
-implementation("com.github.Commit451:Veyron:latest.version.here")
+implementation("com.github.Commit451.Veyron:veyron:latest.version.here")
+// And for RxJava methods:
+implementation("com.github.Commit451.Veyron:rxjava:latest.version.here")
 ```
 You also need to make sure you are compiling with Java 8:
 ```

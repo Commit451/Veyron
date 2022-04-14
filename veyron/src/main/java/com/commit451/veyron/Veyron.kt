@@ -9,10 +9,6 @@ import com.google.api.client.http.ByteArrayContent
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.model.File
 import com.squareup.moshi.Moshi
-import io.reactivex.rxjava3.core.Completable
-import io.reactivex.rxjava3.core.Flowable
-import io.reactivex.rxjava3.core.Single
-import io.reactivex.rxjava3.schedulers.Schedulers
 import java.util.*
 
 /**
@@ -41,12 +37,9 @@ class Veyron private constructor(builder: Builder) {
     /**
      * Get the file at the path. Creates intermediate folders and the actual file if they do not exist
      */
-    fun file(path: String): Single<File> {
-        return file(path, true)
-            .map {
-                //Never null, there will always be a result
-                it.result!!
-            }
+    fun file(path: String): File {
+        // Never null, there will always be a result
+        return file(path, true).result!!
     }
 
     /**
@@ -56,41 +49,38 @@ class Veyron private constructor(builder: Builder) {
      * See [Search for files](https://developers.google.com/drive/api/v3/search-parameters) for
      * documentation on how to create the query.
      */
-    fun search(path: String, query: String): Single<List<File>> {
-        return Single.defer {
-            synchronized(lock) {
-                log { "Searching with query $query" }
-                val folderResult = file(path, false)
-                    .blockingGet()
-                // If folder doesn't exist, return early.
-                val folder = folderResult.result ?: return@defer Single.just(listOf<File>())
-                var finalQuery = "'${folder.id}' in parents"
-                finalQuery += if (query.isBlank()) "" else " and $query"
-                //empty first, since that will not break the loop
-                var nextPageToken: String? = ""
-                val results = mutableListOf<File>()
-                while (nextPageToken != null) {
-                    val result = drive.files()
-                        .list()
-                        .apply {
-                            spaces = space
-                            q = finalQuery
-                            fields = filesFields
-                            pageSize = PAGE_SIZE
-                            if (!nextPageToken.isNullOrEmpty()) {
-                                pageToken = nextPageToken
-                            }
+    fun search(path: String, query: String): List<File> {
+        synchronized(lock) {
+            log { "Searching with query $query" }
+            val folderResult = file(path, false)
+            // If folder doesn't exist, return early.
+            val folder = folderResult.result ?: return listOf()
+            var finalQuery = "'${folder.id}' in parents"
+            finalQuery += if (query.isBlank()) "" else " and $query"
+            //empty first, since that will not break the loop
+            var nextPageToken: String? = ""
+            val results = mutableListOf<File>()
+            while (nextPageToken != null) {
+                val result = drive.files()
+                    .list()
+                    .apply {
+                        spaces = space
+                        q = finalQuery
+                        fields = filesFields
+                        pageSize = PAGE_SIZE
+                        if (!nextPageToken.isNullOrEmpty()) {
+                            pageToken = nextPageToken
                         }
-                        .execute()
-                    log { "Adding ${result.files.size} files" }
-                    results.addAll(result.files)
-                    nextPageToken = result.nextPageToken
-                    if (nextPageToken != null) {
-                        log { "Loading next page with token $nextPageToken" }
                     }
+                    .execute()
+                log { "Adding ${result.files.size} files" }
+                results.addAll(result.files)
+                nextPageToken = result.nextPageToken
+                if (nextPageToken != null) {
+                    log { "Loading next page with token $nextPageToken" }
                 }
-                return@defer Single.just(results)
             }
+            return results
         }
     }
 
@@ -98,111 +88,78 @@ class Veyron private constructor(builder: Builder) {
      * List all files at the given path. Creates intermediate folders and the actual file if they do not exist. Example:
      * dogs/favorites with a query of "spike" will query that result.
      */
-    fun files(path: String): Single<List<File>> {
-        return Single.defer {
-            search(path, "")
-        }
+    fun files(path: String): List<File> {
+        return search(path, "")
     }
 
     /**
      * Get the document at a given path
      */
-    fun <T> document(path: String, type: Class<T>): Single<VeyronResult<T>> {
-        return file(path, false)
-            .flatMap {
-                if (it.result != null) {
-                    log { "Attempting to turn ${it.result.identify()} into a document" }
-                    val document = fileToDocument(it.result, type)
-                    Single.just(VeyronResult(document))
-                } else {
-                    Single.just(VeyronResult.EMPTY)
-                }
-            }
+    fun <T> document(path: String, type: Class<T>): VeyronResult<T> {
+        val file = file(path, false)
+        return if (file.result != null) {
+            log { "Attempting to turn ${file.result.identify()} into a document" }
+            val document = fileToDocument(file.result, type)
+            VeyronResult(document)
+        } else {
+            VeyronResult.EMPTY
+        }
     }
 
     /**
      * Get all files and convert them to documents at a given path (with optional query)
      */
-    fun <T> documents(path: String, type: Class<T>, query: String = ""): Single<List<T>> {
-        return search(path, query)
-            .map {
-                it.map { file -> fileToDocument(file, type)!! }
-            }
+    fun <T> documents(path: String, type: Class<T>, query: String = ""): List<T> {
+        val files = search(path, query)
+        return files.map { file -> fileToDocument(file, type)!! }
     }
 
     /**
      * Gets the file's media as a string at a given path
      */
-    fun string(path: String): Single<VeyronResult<String>> {
-        return file(path, false)
-            .flatMap {
-                if (it.result == null) {
-                    return@flatMap Single.just(VeyronResult.EMPTY)
-                } else {
-                    drive.files().get(it.result.id)
-                        .asInputStream()
-                        .map { inputStream ->
-                            VeyronResult(Okyo.readInputStreamAsString(inputStream))
-                        }
-                }
-            }
+    fun string(path: String): VeyronResult<String> {
+        val file = file(path, false)
+        return if (file.result == null) {
+            return VeyronResult.EMPTY
+        } else {
+            val stream = drive.files().get(file.result.id)
+                .executeMediaAsInputStream()
+            VeyronResult(Okyo.readInputStreamAsString(stream))
+        }
     }
 
     /**
      * Save the data within the [SaveRequest] at the given path.
      * Note that file names are considered unique and any file with the same title will be overwritten.
      */
-    fun save(path: String, request: SaveRequest): Completable {
-        return Completable.defer {
-            when (request) {
-                is SaveRequest.ByteArrayContent -> save(
-                    path,
-                    request.title,
-                    request.content,
-                    request.mediaContent
-                )
-                is SaveRequest.String -> save(
-                    path,
-                    request.title,
-                    request.content,
-                    request.mediaContent
-                )
-                is SaveRequest.Document<*> -> save(path, request)
-                is SaveRequest.Metadata -> save(path, request)
-            }
-        }
-    }
-
-    /**
-     * Save all of the files concurrently. Please be aware of rate limits and adjust [maxConcurrency] accordingly
-     */
-    fun save(path: String, requests: List<SaveRequest>, maxConcurrency: Int = 4): Completable {
-        // https://stackoverflow.com/a/48965035
-        return Completable.defer {
-            Flowable.range(0, requests.size)
-                .concatMapEager<Any>({ index ->
-                    save(path, requests[index])
-                        .subscribeOn(Schedulers.io())
-                        .toFlowable()
-                }, maxConcurrency, 1)
-                .toList()
-                .flatMapCompletable { Completable.complete() }
+    fun save(path: String, request: SaveRequest) {
+        when (request) {
+            is SaveRequest.ByteArrayContent -> save(
+                path,
+                request.title,
+                request.content,
+                request.mediaContent
+            )
+            is SaveRequest.String -> save(
+                path,
+                request.title,
+                request.content,
+                request.mediaContent
+            )
+            is SaveRequest.Document<*> -> save(path, request)
+            is SaveRequest.Metadata -> save(path, request)
         }
     }
 
     /**
      * Deletes the file or folder at the given path.
      */
-    fun delete(path: String): Completable {
-        return Completable.defer {
-            val fileId = file(path)
-                .blockingGet()
-                .id
-            drive.files().delete(fileId)
-                .execute()
-            foldersCache.remove(path)
-            Completable.complete()
-        }
+    fun delete(path: String) {
+        val fileId = file(path)
+            .id
+        drive.files().delete(fileId)
+            .execute()
+        foldersCache.remove(path)
     }
 
     /**
@@ -213,70 +170,64 @@ class Veyron private constructor(builder: Builder) {
         foldersCache.clear()
     }
 
-    private fun file(path: String, alwaysCreate: Boolean): Single<VeyronResult<File>> {
-        return Single.defer {
-            synchronized(lock) {
-                val segments = segments(path)
-                val startFolder = startFolder()
-                var runnerFolder: File = startFolder
+    private fun file(path: String, alwaysCreate: Boolean): VeyronResult<File> {
+        synchronized(lock) {
+            val segments = segments(path)
+            val startFolder = startFolder()
+            var runnerFolder: File = startFolder
 
-                log { "Attempting to access file at $path" }
-                segments.forEachIndexed { index, path ->
-                    val cached = foldersCache.get(path)
-                    if (cached != null) {
-                        log { "Cache hit on $path" }
-                        runnerFolder = cached
-                        return@forEachIndexed
-                    }
-                    val result = drive.files()
-                        .list()
-                        .setSpaces(space)
-                        .setQ("'${runnerFolder.id}' in parents and name = '$path'")
-                        .setFields(filesFields)
-                        .setPageSize(1)
-                        .execute()
-                    if (result != null && result.files.count() > 0) {
-                        log { "File at path $path found" }
-                        runnerFolder = result.files.first()
-                    } else {
-                        val file = if (index == segments.lastIndex) {
-                            if (alwaysCreate) {
-                                log { "File at path $path not found, creating file" }
-                                fileMetadata(path, runnerFolder.id)
-                            } else {
-                                log { "File at path $path not found, returning empty" }
-                                return@defer Single.just(VeyronResult.EMPTY)
-                            }
-                        } else {
-                            log { "File at path $path not found, creating folder" }
-                            folderMetadata(path, runnerFolder.id)
-                        }
-                        runnerFolder = drive.files().create(file)
-                            .execute()
-                    }
-                    if (runnerFolder.isFolder()) {
-                        log { "Caching folder at path $path" }
-                        foldersCache.put(path, runnerFolder)
-                    }
+            log { "Attempting to access file at $path" }
+            segments.forEachIndexed { index, path ->
+                val cached = foldersCache.get(path)
+                if (cached != null) {
+                    log { "Cache hit on $path" }
+                    runnerFolder = cached
+                    return@forEachIndexed
                 }
-                log { "Returning result for file ${runnerFolder.identify()} at $path" }
-                return@defer Single.just(VeyronResult(runnerFolder))
+                val result = drive.files()
+                    .list()
+                    .setSpaces(space)
+                    .setQ("'${runnerFolder.id}' in parents and name = '$path'")
+                    .setFields(filesFields)
+                    .setPageSize(1)
+                    .execute()
+                if (result != null && result.files.count() > 0) {
+                    log { "File at path $path found" }
+                    runnerFolder = result.files.first()
+                } else {
+                    val file = if (index == segments.lastIndex) {
+                        if (alwaysCreate) {
+                            log { "File at path $path not found, creating file" }
+                            fileMetadata(path, runnerFolder.id)
+                        } else {
+                            log { "File at path $path not found, returning empty" }
+                            return VeyronResult.EMPTY
+                        }
+                    } else {
+                        log { "File at path $path not found, creating folder" }
+                        folderMetadata(path, runnerFolder.id)
+                    }
+                    runnerFolder = drive.files().create(file)
+                        .execute()
+                }
+                if (runnerFolder.isFolder()) {
+                    log { "Caching folder at path $path" }
+                    foldersCache.put(path, runnerFolder)
+                }
             }
+            log { "Returning result for file ${runnerFolder.identify()} at $path" }
+            return VeyronResult(runnerFolder)
         }
     }
 
-    private fun <T> save(path: String, request: SaveRequest.Document<T>): Completable {
-        return Completable.defer {
-            val json = moshi.adapter(request.type)
-                .toJson(request.item)
-            save(path, request.title, request.content, json)
-        }
+    private fun <T> save(path: String, request: SaveRequest.Document<T>) {
+        val json = moshi.adapter(request.type)
+            .toJson(request.item)
+        save(path, request.title, request.content, json)
     }
 
-    private fun save(path: String, request: SaveRequest.Metadata): Completable {
-        return Completable.defer {
-            save(path, request.title, request.content, null)
-        }
+    private fun save(path: String, request: SaveRequest.Metadata) {
+        save(path, request.title, request.content, null)
     }
 
     private fun save(
@@ -284,11 +235,9 @@ class Veyron private constructor(builder: Builder) {
         title: String,
         content: File? = null,
         mediaContent: String
-    ): Completable {
-        return Completable.defer {
-            val mediaContentStream = ByteArrayContent.fromString(MIME_TYPE_JSON, mediaContent)
-            save(path, title, content, mediaContentStream)
-        }
+    ) {
+        val mediaContentStream = ByteArrayContent.fromString(MIME_TYPE_JSON, mediaContent)
+        save(path, title, content, mediaContentStream)
     }
 
     private fun save(
@@ -296,32 +245,27 @@ class Veyron private constructor(builder: Builder) {
         title: String,
         content: File?,
         mediaContent: ByteArrayContent?
-    ): Completable {
-        return Completable.defer {
-            val savePath = "$path/$title"
-            log { "Saving to $savePath" }
-            val file = file(savePath)
-                .blockingGet()
+    ) {
+        val savePath = "$path/$title"
+        log { "Saving to $savePath" }
+        val file = file(savePath)
 
-            val savedFile = if (mediaContent == null) {
-                drive.files().update(file.id, content)
-                    .execute()
-            } else {
-                drive.files().update(file.id, content, mediaContent)
-                    .execute()
-            }
-
-            log { "File $savePath saved to file ${savedFile.identify()}" }
-            Completable.complete()
+        val savedFile = if (mediaContent == null) {
+            drive.files().update(file.id, content)
+                .execute()
+        } else {
+            drive.files().update(file.id, content, mediaContent)
+                .execute()
         }
+
+        log { "File $savePath saved to file ${savedFile.identify()}" }
     }
 
     private fun startFolder(): File {
         val path = SPACE_APP_DATA
-        return foldersCache.get(path) ?: drive.files().get(path)
-            .toSingle()
-            .doOnSuccess { foldersCache.put(path, it) }
-            .blockingGet()
+        val file = foldersCache.get(path) ?: drive.files().get(path).execute()
+        foldersCache.put(path, file)
+        return file
     }
 
     private fun folderMetadata(folderName: String, parentId: String): File {
@@ -351,7 +295,7 @@ class Veyron private constructor(builder: Builder) {
             if (content.isEmpty()) {
                 return null
             }
-            val adapter = moshi.adapter<T>(type)
+            val adapter = moshi.adapter(type)
             adapter.fromJson(content)!!
         } catch (exception: Exception) {
             // If the file is found to be not downloadable, that means it was just created and has no content

@@ -1,5 +1,4 @@
 apply plugin: "com.android.application"
-
 apply plugin: "kotlin-android"
 
 android {
@@ -8,14 +7,14 @@ android {
         KEYSTORE_PASSWORD = project.hasProperty("KEYSTORE_PASSWORD") ? project.KEYSTORE_PASSWORD : " "
     }
 
-    compileSdkVersion 31
+    compileSdkVersion 32
 
     defaultConfig {
         // Using same package name as this sample so that we can just use its project in the Google
         // API console
         applicationId "com.commit451.driveappfolderviewer.sample"
         minSdkVersion 21
-        targetSdkVersion 31
+        targetSdkVersion 32
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -55,26 +54,32 @@ android {
 
 ext {
     moshiVersion = "1.13.0"
+    coroutinesVersion = "1.6.0"
 }
 dependencies {
-    implementation "androidx.appcompat:appcompat:1.4.1"
 
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutinesVersion")
+
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.4.1")
+    implementation("androidx.appcompat:appcompat:1.4.1")
 
     // need to add this manually to avoid build issues, not actually using it
-    implementation "com.google.guava:guava:27.0.1-android"
-    implementation "com.google.android.gms:play-services-base:18.0.1"
-    implementation "com.google.android.gms:play-services-auth:20.0.1"
+    implementation("com.google.guava:guava:27.0.1-android")
+    implementation("com.google.android.gms:play-services-base:18.0.1")
+    implementation("com.google.android.gms:play-services-auth:20.1.0")
 
-    implementation "com.google.android.material:material:1.5.0"
+    implementation("com.google.android.material:material:1.5.0")
 
-    implementation "io.reactivex.rxjava3:rxandroid:3.0.0"
+    implementation("io.reactivex.rxjava3:rxandroid:3.0.0")
 
     implementation("com.squareup.moshi:moshi-kotlin:$moshiVersion")
     implementation("com.squareup.moshi:moshi-adapters:$moshiVersion")
 
-    implementation "com.github.Commit451.AdapterLayout:adapterlayout:1.2.0"
-    implementation "com.github.Commit451:Aloy:1.2.0"
-    implementation "com.github.Commit451:DriveAppFolderViewer:4.0.0"
+    implementation("com.github.Commit451.AdapterLayout:adapterlayout:1.2.0")
+    implementation("com.github.Commit451:Aloy:1.2.0")
+    implementation("com.github.Commit451:DriveAppFolderViewer:4.0.0")
 
-    implementation project(":veyron")
+    implementation(project(":veyron"))
+    implementation(project(":rxjava"))
 }

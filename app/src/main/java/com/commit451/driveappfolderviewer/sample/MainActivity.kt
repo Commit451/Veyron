@@ -2,6 +2,9 @@ package com.commit451.driveappfolderviewer.sample
 
 import android.os.Bundle
 import android.util.Log
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.commit451.aloy.AloyAdapter
 import com.commit451.driveappfolderviewer.DriveAppFolderViewer
@@ -9,6 +12,9 @@ import com.commit451.driveappfolderviewer.DriveAppViewerBaseActivity
 import com.commit451.driveappfolderviewer.sample.databinding.ActivityMainBinding
 import com.commit451.veyron.SaveRequest
 import com.commit451.veyron.Veyron
+import com.commit451.veyron.deleteCompletable
+import com.commit451.veyron.documentSingle
+import com.commit451.veyron.saveCompletable
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.material.snackbar.Snackbar
 import com.squareup.moshi.Moshi
@@ -17,6 +23,8 @@ import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import io.reactivex.rxjava3.schedulers.Schedulers
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.util.*
 
 class MainActivity : DriveAppViewerBaseActivity() {
@@ -76,7 +84,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
             dogs.add(dog)
             val saveRequest = SaveRequest.Document(FILE_DOGS, DogsResponse::class.java, response)
 
-            veyron.save(PATH_DOGS, saveRequest)
+            veyron.saveCompletable(PATH_DOGS, saveRequest)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe({
@@ -90,7 +98,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
         binding.buttonDeleteAll.setOnClickListener {
             //we also have to delete the local
             currentDogsResponse?.dogs?.clear()
-            veyron.delete(PATH_DOGS)
+            veyron.deleteCompletable(PATH_DOGS)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe({
@@ -108,7 +116,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
 
             val saveRequest = SaveRequest.String(dog.name, "asdf")
 
-            veyron.save(PATH_FAVORITE_DOGS, saveRequest)
+            veyron.saveCompletable(PATH_FAVORITE_DOGS, saveRequest)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe({
@@ -130,7 +138,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
 
                 dogSaveRequests.add(saveRequest)
             }
-            veyron.save(PATH_FAVORITE_DOGS, dogSaveRequests)
+            veyron.saveCompletable(PATH_FAVORITE_DOGS, dogSaveRequests)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe({
@@ -143,7 +151,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
 
         binding.buttonDeleteAllFavorite.setOnClickListener {
             adapterFavorites.clear()
-            veyron.delete(PATH_FAVORITE_DOGS)
+            veyron.deleteCompletable(PATH_FAVORITE_DOGS)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe({
@@ -204,7 +212,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
     private fun loadDogs() {
         binding.swipeRefreshLayout.isRefreshing = true
         disposables.add(
-            veyron.document("$PATH_DOGS/$FILE_DOGS", DogsResponse::class.java)
+            veyron.documentSingle("$PATH_DOGS/$FILE_DOGS", DogsResponse::class.java)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe({
@@ -223,25 +231,24 @@ class MainActivity : DriveAppViewerBaseActivity() {
 
     private fun loadFavorites() {
         binding.swipeRefreshLayout.isRefreshing = true
-        disposables.add(
-            veyron.files(PATH_FAVORITE_DOGS)
-                .map {
-                    it.map { file ->
-                        val dog = Dog()
-                        dog.name = file.name
-                        //dog.created = Date(file.createdTime.value)
-                        dog
-                    }
-                }
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe({
-                    binding.swipeRefreshLayout.isRefreshing = false
-                    adapterFavorites.set(it)
-                }, {
-                    error(it)
-                })
-        )
+//        lifecycleScope.launchWhenResumed {
+//            try {
+//                val files = veyron.files(PATH_FAVORITE_DOGS)
+//                val dogs = files.map { file ->
+//                    val dog = Dog()
+//                    dog.name = file.name
+//                    //dog.created = Date(file.createdTime.value)
+//                    dog
+//                }
+//                log("${dogs.size}")
+//                with(Dispatchers.Main) {
+//                    binding.swipeRefreshLayout.isRefreshing = false
+//                    adapterFavorites.set(dogs)
+//                }
+//            } catch (e: Exception) {
+//                error(e)
+//            }
+//        }
     }
 
     private fun snackbar(message: String) {
