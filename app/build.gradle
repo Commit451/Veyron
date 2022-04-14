@@ -54,7 +54,7 @@ android {
 
 ext {
     moshiVersion = "1.13.0"
-    coroutinesVersion = "1.6.0"
+    coroutinesVersion = "1.6.1"
     lifecycleVersion = "2.4.1"
 }
 dependencies {
