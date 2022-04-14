@@ -2,9 +2,7 @@ package com.commit451.driveappfolderviewer.sample
 
 import android.os.Bundle
 import android.util.Log
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.commit451.aloy.AloyAdapter
 import com.commit451.driveappfolderviewer.DriveAppFolderViewer
@@ -23,15 +21,12 @@ import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import io.reactivex.rxjava3.schedulers.Schedulers
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import java.util.*
 
 class MainActivity : DriveAppViewerBaseActivity() {
 
     companion object {
         private const val PATH_DOGS = "just-dogs"
-        private const val PATH_FAVORITE_DOGS = "favorite-dogs"
         private const val FILE_DOGS = "dogs"
     }
 
@@ -46,11 +41,18 @@ class MainActivity : DriveAppViewerBaseActivity() {
 
     private val disposables = CompositeDisposable()
 
+    private lateinit var viewModel: MainActivityViewModel
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        viewModel = ViewModelProvider(this)[MainActivityViewModel::class.java]
+        viewModel.uiState.observe(this) {
+            binding.swipeRefreshLayout.isRefreshing = false
+            adapterFavorites.set(it.favorites)
+        }
         binding.toolbar.title = "Veyron"
         binding.toolbar.inflateMenu(R.menu.debug)
         binding.toolbar.inflateMenu(R.menu.clear_cache)
@@ -116,7 +118,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
 
             val saveRequest = SaveRequest.String(dog.name, "asdf")
 
-            veyron.saveCompletable(PATH_FAVORITE_DOGS, saveRequest)
+            veyron.saveCompletable(MainActivityViewModel.PATH_FAVORITE_DOGS, saveRequest)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe({
@@ -138,7 +140,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
 
                 dogSaveRequests.add(saveRequest)
             }
-            veyron.saveCompletable(PATH_FAVORITE_DOGS, dogSaveRequests)
+            veyron.saveCompletable(MainActivityViewModel.PATH_FAVORITE_DOGS, dogSaveRequests)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe({
@@ -151,7 +153,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
 
         binding.buttonDeleteAllFavorite.setOnClickListener {
             adapterFavorites.clear()
-            veyron.deleteCompletable(PATH_FAVORITE_DOGS)
+            veyron.deleteCompletable(MainActivityViewModel.PATH_FAVORITE_DOGS)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe({
@@ -231,24 +233,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
 
     private fun loadFavorites() {
         binding.swipeRefreshLayout.isRefreshing = true
-//        lifecycleScope.launchWhenResumed {
-//            try {
-//                val files = veyron.files(PATH_FAVORITE_DOGS)
-//                val dogs = files.map { file ->
-//                    val dog = Dog()
-//                    dog.name = file.name
-//                    //dog.created = Date(file.createdTime.value)
-//                    dog
-//                }
-//                log("${dogs.size}")
-//                with(Dispatchers.Main) {
-//                    binding.swipeRefreshLayout.isRefreshing = false
-//                    adapterFavorites.set(dogs)
-//                }
-//            } catch (e: Exception) {
-//                error(e)
-//            }
-//        }
+        viewModel.loadFavorites(veyron)
     }
 
     private fun snackbar(message: String) {

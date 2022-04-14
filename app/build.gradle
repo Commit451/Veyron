@@ -55,13 +55,15 @@ android {
 ext {
     moshiVersion = "1.13.0"
     coroutinesVersion = "1.6.0"
+    lifecycleVersion = "2.4.1"
 }
 dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutinesVersion")
 
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.4.1")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:$lifecycleVersion")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycleVersion")
     implementation("androidx.appcompat:appcompat:1.4.1")
 
     // need to add this manually to avoid build issues, not actually using it
