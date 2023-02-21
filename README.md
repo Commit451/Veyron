@@ -9,12 +9,12 @@ implementation("com.github.Commit451.Veyron:veyron:latest.version.here")
 // And for RxJava methods:
 implementation("com.github.Commit451.Veyron:rxjava:latest.version.here")
 ```
-You also need to make sure you are compiling with Java 8:
+You also need to make sure you are compiling with Java 11:
 ```
 android {
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
     }
 }
 ```
@@ -99,7 +99,7 @@ If you are using R8/Proguard, you will need to include the rules for [Moshi](htt
 License
 --------
 
-    Copyright 2022 Commit 451
+    Copyright 2023 Commit 451
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
