@@ -1,20 +1,20 @@
 # Veyron
-[![](https://jitpack.io/v/Commit451/Veyron.svg)](https://jitpack.io/#Commit451/Veyron)
+[![Build](https://github.com/Commit451/Veyron/actions/workflows/ci.yml/badge.svg)](https://github.com/Commit451/Veyron/actions/workflows/ci.yml) [![Maven Central](https://img.shields.io/maven-central/v/com.commit451.veyron/veyron.svg?label=Maven%20Central)](https://central.sonatype.com/search?q=g:com.commit451.veyron)
 
 Easily store and fetch JSON, Files, and Strings in Google Drive on Android.
 
 ## Dependency
-```
-implementation("com.github.Commit451.Veyron:veyron:latest.version.here")
+```kotlin
+implementation("com.commit451.veyron:veyron:latest.version.here")
 // And for RxJava methods:
-implementation("com.github.Commit451.Veyron:rxjava:latest.version.here")
+implementation("com.commit451.veyron:rxjava:latest.version.here")
 ```
-You also need to make sure you are compiling with Java 11:
-```
+Compile with Java 17:
+```kotlin
 android {
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 }
 ```
@@ -82,9 +82,8 @@ Other operations you can perform:
 - veyron.save(path, listOfSaveRequests())
 
 ## Build Locally
-You will need to set up a Google Cloud project with the same package name as the sample, and create a keystore that works with the details within the app's `build.gradle` file. Then, create a new `gradle.properties` file that looks like so:
-```
-KEYSTORE_PASSWORD=keystorepasswordhere
+```bash
+./gradlew :veyron:build :rxjava:build
 ```
 
 ## Note
