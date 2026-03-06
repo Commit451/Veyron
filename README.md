@@ -6,8 +6,6 @@ Easily store and fetch JSON, Files, and Strings in Google Drive on Android.
 ## Dependency
 ```kotlin
 implementation("com.commit451.veyron:veyron:latest.version.here")
-// And for RxJava methods:
-implementation("com.commit451.veyron:rxjava:latest.version.here")
 ```
 Compile with Java 17:
 ```kotlin
@@ -31,45 +29,51 @@ val veyron = Veyron.Builder(drive)
 
 ### Create
 ```kotlin
-val dog = Dog()
-val saveRequest = SaveRequest.Document("dog.json", Dog::class.java, thing)
+lifecycleScope.launch {
+    val dog = Dog()
+    val saveRequest = SaveRequest.Document("dog.json", Dog::class.java, dog)
+    val path = "info"
 
-val path = "info"
-// RxJava Completable is returned
-veyron.save(path, saveRequest)
-        .subscribeOn(Schedulers.io())
-        .observeOn(AndroidSchedulers.mainThread())
-        .subscribe({
-            snackbar("Saved")
-        }, {
-            it.printStackTrace()
-        })
+    runCatching {
+        veyron.save(path, saveRequest)
+    }.onSuccess {
+        snackbar("Saved")
+    }.onFailure {
+        it.printStackTrace()
+    }
+}
 ```
 
 ### Fetch
 ```kotlin
-val path = "info/dog.json"
-veyron.document(path, Dog::class.java)
-    .subscribeOn(Schedulers.io())
-    .observeOn(AndroidSchedulers.mainThread())
-    .subscribe({
-        snackbar("Dog found")
-    }, {
+lifecycleScope.launch {
+    val path = "info/dog.json"
+
+    runCatching {
+        veyron.document(path, Dog::class.java).result
+    }.onSuccess { dog ->
+        if (dog != null) {
+            snackbar("Dog found")
+        }
+    }.onFailure {
         it.printStackTrace()
-    })
+    }
+}
 ```
 
 ### Delete
 ```kotlin
-val path = "info/dog.json"
-veyron.delete(path)
-    .subscribeOn(Schedulers.io())
-    .observeOn(AndroidSchedulers.mainThread())
-    .subscribe({
+lifecycleScope.launch {
+    val path = "info/dog.json"
+
+    runCatching {
+        veyron.delete(path)
+    }.onSuccess {
         snackbar("Dogs deleted")
-    }, {
+    }.onFailure {
         it.printStackTrace()
-    })
+    }
+}
 ```
 
 ### Other Operations
@@ -83,7 +87,7 @@ Other operations you can perform:
 
 ## Build Locally
 ```bash
-./gradlew :veyron:build :rxjava:build
+./gradlew :veyron:build
 ```
 
 ## Note

@@ -3,6 +3,7 @@ package com.commit451.driveappfolderviewer.sample
 import android.os.Bundle
 import android.util.Log
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.commit451.aloy.AloyAdapter
 import com.commit451.driveappfolderviewer.DriveAppFolderViewer
@@ -10,18 +11,14 @@ import com.commit451.driveappfolderviewer.DriveAppViewerBaseActivity
 import com.commit451.driveappfolderviewer.sample.databinding.ActivityMainBinding
 import com.commit451.veyron.SaveRequest
 import com.commit451.veyron.Veyron
-import com.commit451.veyron.deleteCompletable
-import com.commit451.veyron.documentSingle
-import com.commit451.veyron.saveCompletable
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.material.snackbar.Snackbar
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
-import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
-import io.reactivex.rxjava3.disposables.CompositeDisposable
-import io.reactivex.rxjava3.schedulers.Schedulers
-import java.util.*
+import kotlinx.coroutines.launch
+import java.util.Date
+import java.util.UUID
 
 class MainActivity : DriveAppViewerBaseActivity() {
 
@@ -31,15 +28,12 @@ class MainActivity : DriveAppViewerBaseActivity() {
     }
 
     private lateinit var binding: ActivityMainBinding
-
     private lateinit var veyron: Veyron
 
     private var currentDogsResponse: DogsResponse? = null
 
     private lateinit var adapter: AloyAdapter<Dog, DogViewHolder>
     private lateinit var adapterFavorites: AloyAdapter<Dog, DogViewHolder>
-
-    private val disposables = CompositeDisposable()
 
     private lateinit var viewModel: MainActivityViewModel
 
@@ -63,6 +57,7 @@ class MainActivity : DriveAppViewerBaseActivity() {
                     startActivity(intent)
                     return@setOnMenuItemClickListener true
                 }
+
                 R.id.action_clear_cache -> {
                     veyron.clearCache()
                     snackbar("Cache cleared")
@@ -73,95 +68,97 @@ class MainActivity : DriveAppViewerBaseActivity() {
         }
 
         binding.buttonNewDog.setOnClickListener {
+            lifecycleScope.launch {
+                val dog = Dog().apply {
+                    name = UUID.randomUUID().toString()
+                    created = Date()
+                }
 
-            val dog = Dog()
-            dog.name = UUID.randomUUID().toString()
-            dog.created = Date()
+                val response = currentDogsResponse ?: DogsResponse()
+                currentDogsResponse = response
+                val dogs = response.dogs ?: mutableListOf()
+                response.dogs = dogs
+                dogs.add(dog)
+                val saveRequest = SaveRequest.Document(FILE_DOGS, DogsResponse::class.java, response)
 
-            val response = currentDogsResponse ?: DogsResponse()
-            this.currentDogsResponse = response
-            val dogs = response.dogs ?: mutableListOf()
-            //in the case where we created a new list
-            response.dogs = dogs
-            dogs.add(dog)
-            val saveRequest = SaveRequest.Document(FILE_DOGS, DogsResponse::class.java, response)
-
-            veyron.saveCompletable(PATH_DOGS, saveRequest)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe({
+                runCatching {
+                    veyron.save(PATH_DOGS, saveRequest)
+                }.onSuccess {
                     snackbar("Created dog")
                     loadDogs()
-                }, { throwable ->
+                }.onFailure { throwable ->
                     error(throwable)
-                })
+                }
+            }
         }
 
         binding.buttonDeleteAll.setOnClickListener {
-            //we also have to delete the local
-            currentDogsResponse?.dogs?.clear()
-            veyron.deleteCompletable(PATH_DOGS)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe({
+            lifecycleScope.launch {
+                currentDogsResponse?.dogs?.clear()
+                runCatching {
+                    veyron.delete(PATH_DOGS)
+                }.onSuccess {
                     snackbar("All dogs deleted")
                     loadDogs()
-                }, { throwable ->
+                }.onFailure { throwable ->
                     error(throwable)
-                })
+                }
+            }
         }
 
         binding.buttonNewFavoriteDog.setOnClickListener {
-            val dog = Dog()
-            dog.name = UUID.randomUUID().toString()
-            dog.created = Date()
+            lifecycleScope.launch {
+                val dog = Dog().apply {
+                    name = UUID.randomUUID().toString()
+                    created = Date()
+                }
+                val saveRequest = SaveRequest.String(dog.name, "asdf")
 
-            val saveRequest = SaveRequest.String(dog.name, "asdf")
-
-            veyron.saveCompletable(MainActivityViewModel.PATH_FAVORITE_DOGS, saveRequest)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe({
+                runCatching {
+                    veyron.save(MainActivityViewModel.PATH_FAVORITE_DOGS, saveRequest)
+                }.onSuccess {
                     snackbar("Created favorite dog")
                     loadFavorites()
-                }, { throwable ->
+                }.onFailure { throwable ->
                     error(throwable)
-                })
+                }
+            }
         }
 
         binding.buttonManyFavoriteDog.setOnClickListener {
-            val dogSaveRequests = mutableListOf<SaveRequest.String>()
-            for (i in 0..9) {
-                val dog = Dog()
-                dog.name = UUID.randomUUID().toString()
-                dog.created = Date()
+            lifecycleScope.launch {
+                val dogSaveRequests = mutableListOf<SaveRequest.String>()
+                repeat(10) {
+                    val dog = Dog().apply {
+                        name = UUID.randomUUID().toString()
+                        created = Date()
+                    }
+                    dogSaveRequests += SaveRequest.String(dog.name, "asdf")
+                }
 
-                val saveRequest = SaveRequest.String(dog.name, "asdf")
-
-                dogSaveRequests.add(saveRequest)
-            }
-            veyron.saveCompletable(MainActivityViewModel.PATH_FAVORITE_DOGS, dogSaveRequests)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe({
+                runCatching {
+                    veyron.save(MainActivityViewModel.PATH_FAVORITE_DOGS, dogSaveRequests)
+                }.onSuccess {
                     snackbar("Created ${dogSaveRequests.size} favorite dogs")
                     loadFavorites()
-                }, { throwable ->
+                }.onFailure { throwable ->
                     error(throwable)
-                })
+                }
+            }
         }
 
         binding.buttonDeleteAllFavorite.setOnClickListener {
-            adapterFavorites.clear()
-            veyron.deleteCompletable(MainActivityViewModel.PATH_FAVORITE_DOGS)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe({
+            lifecycleScope.launch {
+                adapterFavorites.clear()
+                runCatching {
+                    veyron.delete(MainActivityViewModel.PATH_FAVORITE_DOGS)
+                }.onSuccess {
                     snackbar("All favorite dogs deleted")
                     load()
-                }, { throwable ->
+                }.onFailure { throwable ->
                     error(throwable)
-                })
+                }
+            }
         }
 
         adapter = AloyAdapter({ parent, _ ->
@@ -192,18 +189,13 @@ class MainActivity : DriveAppViewerBaseActivity() {
         val moshi = Moshi.Builder()
             .add(KotlinJsonAdapterFactory())
             .add(Date::class.java, Rfc3339DateJsonAdapter())
-            //etc
+            // etc
             .build()
         veyron = Veyron.Builder(drive!!)
             .moshi(moshi)
             .verbose(true)
             .build()
         load()
-    }
-
-    override fun onDestroy() {
-        disposables.clear()
-        super.onDestroy()
     }
 
     private fun load() {
@@ -213,22 +205,21 @@ class MainActivity : DriveAppViewerBaseActivity() {
 
     private fun loadDogs() {
         binding.swipeRefreshLayout.isRefreshing = true
-        disposables.add(
-            veyron.documentSingle("$PATH_DOGS/$FILE_DOGS", DogsResponse::class.java)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe({
-                    binding.swipeRefreshLayout.isRefreshing = false
-                    if (it.result != null) {
-                        currentDogsResponse = it.result
-                        it.result?.dogs?.let { dogs ->
-                            adapter.set(dogs)
-                        }
+        lifecycleScope.launch {
+            runCatching {
+                veyron.document("$PATH_DOGS/$FILE_DOGS", DogsResponse::class.java)
+            }.onSuccess {
+                binding.swipeRefreshLayout.isRefreshing = false
+                if (it.result != null) {
+                    currentDogsResponse = it.result
+                    it.result?.dogs?.let { dogs ->
+                        adapter.set(dogs)
                     }
-                }, { throwable ->
-                    error(throwable)
-                })
-        )
+                }
+            }.onFailure { throwable ->
+                error(throwable)
+            }
+        }
     }
 
     private fun loadFavorites() {

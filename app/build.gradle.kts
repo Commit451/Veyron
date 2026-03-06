@@ -69,8 +69,6 @@ dependencies {
 
     implementation("com.google.android.material:material:1.13.0")
 
-    implementation("io.reactivex.rxjava3:rxandroid:3.0.2")
-
     implementation("com.squareup.moshi:moshi-kotlin:1.15.2")
     implementation("com.squareup.moshi:moshi-adapters:1.15.2")
 
@@ -79,5 +77,4 @@ dependencies {
     implementation("com.github.Commit451:DriveAppFolderViewer:4.0.0")
 
     implementation(project(":veyron"))
-    implementation(project(":rxjava"))
 }

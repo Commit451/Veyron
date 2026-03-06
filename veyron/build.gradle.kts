@@ -56,6 +56,7 @@ dependencies {
 
     api("com.squareup.moshi:moshi:1.15.2")
     api("com.commit451:okyo:3.0.7")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
 
     testImplementation("junit:junit:4.13.2")
 }
