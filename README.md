@@ -1,20 +1,18 @@
 # Veyron
-[![](https://jitpack.io/v/Commit451/Veyron.svg)](https://jitpack.io/#Commit451/Veyron)
+[![Build](https://github.com/Commit451/Veyron/actions/workflows/ci.yml/badge.svg)](https://github.com/Commit451/Veyron/actions/workflows/ci.yml) [![Maven Central](https://img.shields.io/maven-central/v/com.commit451.veyron/veyron.svg?label=Maven%20Central)](https://central.sonatype.com/search?q=g:com.commit451.veyron)
 
 Easily store and fetch JSON, Files, and Strings in Google Drive on Android.
 
 ## Dependency
+```kotlin
+implementation("com.commit451.veyron:veyron:latest.version.here")
 ```
-implementation("com.github.Commit451.Veyron:veyron:latest.version.here")
-// And for RxJava methods:
-implementation("com.github.Commit451.Veyron:rxjava:latest.version.here")
-```
-You also need to make sure you are compiling with Java 11:
-```
+Compile with Java 17:
+```kotlin
 android {
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 }
 ```
@@ -31,45 +29,51 @@ val veyron = Veyron.Builder(drive)
 
 ### Create
 ```kotlin
-val dog = Dog()
-val saveRequest = SaveRequest.Document("dog.json", Dog::class.java, thing)
+lifecycleScope.launch {
+    val dog = Dog()
+    val saveRequest = SaveRequest.Document("dog.json", Dog::class.java, dog)
+    val path = "info"
 
-val path = "info"
-// RxJava Completable is returned
-veyron.save(path, saveRequest)
-        .subscribeOn(Schedulers.io())
-        .observeOn(AndroidSchedulers.mainThread())
-        .subscribe({
-            snackbar("Saved")
-        }, {
-            it.printStackTrace()
-        })
+    runCatching {
+        veyron.save(path, saveRequest)
+    }.onSuccess {
+        snackbar("Saved")
+    }.onFailure {
+        it.printStackTrace()
+    }
+}
 ```
 
 ### Fetch
 ```kotlin
-val path = "info/dog.json"
-veyron.document(path, Dog::class.java)
-    .subscribeOn(Schedulers.io())
-    .observeOn(AndroidSchedulers.mainThread())
-    .subscribe({
-        snackbar("Dog found")
-    }, {
+lifecycleScope.launch {
+    val path = "info/dog.json"
+
+    runCatching {
+        veyron.document(path, Dog::class.java).result
+    }.onSuccess { dog ->
+        if (dog != null) {
+            snackbar("Dog found")
+        }
+    }.onFailure {
         it.printStackTrace()
-    })
+    }
+}
 ```
 
 ### Delete
 ```kotlin
-val path = "info/dog.json"
-veyron.delete(path)
-    .subscribeOn(Schedulers.io())
-    .observeOn(AndroidSchedulers.mainThread())
-    .subscribe({
+lifecycleScope.launch {
+    val path = "info/dog.json"
+
+    runCatching {
+        veyron.delete(path)
+    }.onSuccess {
         snackbar("Dogs deleted")
-    }, {
+    }.onFailure {
         it.printStackTrace()
-    })
+    }
+}
 ```
 
 ### Other Operations
@@ -82,9 +86,8 @@ Other operations you can perform:
 - veyron.save(path, listOfSaveRequests())
 
 ## Build Locally
-You will need to set up a Google Cloud project with the same package name as the sample, and create a keystore that works with the details within the app's `build.gradle` file. Then, create a new `gradle.properties` file that looks like so:
-```
-KEYSTORE_PASSWORD=keystorepasswordhere
+```bash
+./gradlew :veyron:build
 ```
 
 ## Note
