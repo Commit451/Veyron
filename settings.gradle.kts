@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Veyron"
-include(":veyron")
+include(":app", ":veyron")

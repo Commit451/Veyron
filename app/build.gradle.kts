@@ -24,33 +24,41 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    signingConfigs {
-        create("release") {
-            val keystorePassword = (project.findProperty("KEYSTORE_PASSWORD") as? String).orEmpty()
-            storeFile = file("keystore.jks")
-            storePassword = keystorePassword
-            keyAlias = "commit451"
-            keyPassword = keystorePassword
-        }
-    }
-
     buildTypes {
         debug {
             isMinifyEnabled = false
             proguardFiles(
-                getDefaultProguardFile("proguard-android.txt"),
-                "consumer-shrinker-rules.pro",
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
             )
-            signingConfig = signingConfigs.getByName("release")
         }
         release {
             isMinifyEnabled = false
             proguardFiles(
-                getDefaultProguardFile("proguard-android.txt"),
-                "consumer-shrinker-rules.pro",
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
             )
-            signingConfig = signingConfigs.getByName("release")
         }
+    }
+
+    packaging {
+        resources {
+            excludes += setOf(
+                "META-INF/INDEX.LIST",
+                "META-INF/DEPENDENCIES",
+                "META-INF/LICENSE",
+                "META-INF/LICENSE.txt",
+                "META-INF/license.txt",
+                "META-INF/NOTICE",
+                "META-INF/NOTICE.txt",
+                "META-INF/notice.txt",
+                "META-INF/ASL2.0",
+            )
+        }
+    }
+
+    lint {
+        disable += "DuplicatePlatformClasses"
     }
 }
 
@@ -61,6 +69,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.1")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.1")
     implementation("androidx.appcompat:appcompat:1.7.1")
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
 
     // need to add this manually to avoid build issues, not actually using it
     implementation("com.google.guava:guava:33.4.8-android")
@@ -72,9 +81,9 @@ dependencies {
     implementation("com.squareup.moshi:moshi-kotlin:1.15.2")
     implementation("com.squareup.moshi:moshi-adapters:1.15.2")
 
-    implementation("com.github.Commit451.AdapterLayout:adapterlayout:1.2.0")
+    implementation("com.commit451.adapterlayout:adapterlayout:2.0.0")
     implementation("com.commit451:aloy:1.2.1")
-    implementation("com.github.Commit451:DriveAppFolderViewer:4.0.0")
+    implementation("com.commit451.driveappfolderviewer:driveappfolderviewer:6.0.0")
 
     implementation(project(":veyron"))
 }
